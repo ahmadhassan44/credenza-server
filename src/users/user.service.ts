@@ -12,8 +12,8 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
   
-  @IsNotEmpty()
-  name: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface UpdateUserDto {
