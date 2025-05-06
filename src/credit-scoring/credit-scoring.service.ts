@@ -32,7 +32,7 @@ export class CreditScoringService {
    */
   async generateCreatorScore(creatorId: string): Promise<CreditScore> {
     this.logger.log(`Generating credit score for creator ${creatorId}`);
-    
+
     const creator = await this.prisma.creator.findUnique({
       where: { id: creatorId },
       include: {
@@ -50,7 +50,7 @@ export class CreditScoringService {
 
     // Calculate platform-specific scores
     const platformScores = await Promise.all(
-      creator.platforms.map(platform => this.scorePlatform(platform))
+      creator.platforms.map((platform) => this.scorePlatform(platform)),
     );
 
     // Calculate overall score (weighted average of platform scores)
@@ -62,11 +62,11 @@ export class CreditScoringService {
         score: overallScore,
         creator: { connect: { id: creatorId } },
         platformScores: {
-          create: platformScores.map(ps => ({
+          create: platformScores.map((ps) => ({
             platformId: ps.platformId,
             platformType: ps.platformType,
             score: ps.score,
-            factors: ps.factors,
+            factors: ps.factors as { factor: string; score: number; weight: number }[],
           })),
         },
       },
@@ -85,13 +85,13 @@ export class CreditScoringService {
    */
   private async scorePlatform(platform: any): Promise<any> {
     const { id, type, metrics } = platform;
-    
+
     // Group metrics by type for easier processing
     const metricsByType = this.groupMetricsByType(metrics);
-    
+
     // Define scoring factors based on platform type
     const factors = this.getScoringFactors(type, metricsByType);
-    
+
     // Calculate platform score (weighted average of factor scores)
     const score = this.calculatePlatformScore(factors);
 
@@ -119,14 +119,19 @@ export class CreditScoringService {
   /**
    * Get scoring factors for a platform
    */
-  private getScoringFactors(platformType: string, metricsByType: Record<string, any[]>): any[] {
-    const factors = [];
+  private getScoringFactors(
+    platformType: string,
+    metricsByType: Record<string, any[]>,
+  ): { factor: string; score: number; weight: number }[] {
+    const factors: { factor: string; score: number; weight: number }[] = [];
 
     switch (platformType) {
       case 'YOUTUBE':
         // Audience Size: Subscriber count
         if (metricsByType.FOLLOWERS) {
-          const followerCount = this.getLatestMetricValue(metricsByType.FOLLOWERS);
+          const followerCount = this.getLatestMetricValue(
+            metricsByType.FOLLOWERS,
+          );
           factors.push({
             factor: 'Audience Size',
             score: this.scoreAudienceSize(followerCount),
@@ -137,7 +142,8 @@ export class CreditScoringService {
         // Engagement: Views per video or view-to-subscriber ratio
         if (metricsByType.VIEWS) {
           const viewCount = this.getLatestMetricValue(metricsByType.VIEWS);
-          const followerCount = this.getLatestMetricValue(metricsByType.FOLLOWERS) || 1;
+          const followerCount =
+            this.getLatestMetricValue(metricsByType.FOLLOWERS) || 1;
           factors.push({
             factor: 'Engagement',
             score: this.scoreEngagementRatio(viewCount, followerCount),
@@ -147,7 +153,7 @@ export class CreditScoringService {
 
         // Income Stability: Consistency in earnings
         if (metricsByType.EARNINGS) {
-          const earnings = metricsByType.EARNINGS.map(m => m.value);
+          const earnings = metricsByType.EARNINGS.map((m) => m.value);
           factors.push({
             factor: 'Income Stability',
             score: this.scoreIncomeStability(earnings),
@@ -159,7 +165,9 @@ export class CreditScoringService {
       case 'PATREON':
         // Patron Count: Number of supporters
         if (metricsByType.FOLLOWERS) {
-          const patronCount = this.getLatestMetricValue(metricsByType.FOLLOWERS);
+          const patronCount = this.getLatestMetricValue(
+            metricsByType.FOLLOWERS,
+          );
           factors.push({
             factor: 'Patron Count',
             score: this.scorePatronCount(patronCount),
@@ -169,7 +177,9 @@ export class CreditScoringService {
 
         // Income Level: Monthly income
         if (metricsByType.EARNINGS) {
-          const monthlyIncome = this.getLatestMetricValue(metricsByType.EARNINGS);
+          const monthlyIncome = this.getLatestMetricValue(
+            metricsByType.EARNINGS,
+          );
           factors.push({
             factor: 'Income Level',
             score: this.scoreIncomeLevel(monthlyIncome),
@@ -179,7 +189,7 @@ export class CreditScoringService {
 
         // Income Stability: Consistency in earnings
         if (metricsByType.EARNINGS) {
-          const earnings = metricsByType.EARNINGS.map(m => m.value);
+          const earnings = metricsByType.EARNINGS.map((m) => m.value);
           factors.push({
             factor: 'Income Stability',
             score: this.scoreIncomeStability(earnings),
@@ -191,7 +201,9 @@ export class CreditScoringService {
       case 'INSTAGRAM':
         // Audience Size: Follower count
         if (metricsByType.FOLLOWERS) {
-          const followerCount = this.getLatestMetricValue(metricsByType.FOLLOWERS);
+          const followerCount = this.getLatestMetricValue(
+            metricsByType.FOLLOWERS,
+          );
           factors.push({
             factor: 'Audience Size',
             score: this.scoreAudienceSize(followerCount),
@@ -201,7 +213,9 @@ export class CreditScoringService {
 
         // Engagement: Engagement rate
         if (metricsByType.ENGAGEMENT) {
-          const engagementRate = this.getLatestMetricValue(metricsByType.ENGAGEMENT);
+          const engagementRate = this.getLatestMetricValue(
+            metricsByType.ENGAGEMENT,
+          );
           factors.push({
             factor: 'Engagement',
             score: this.scoreEngagementRate(engagementRate),
@@ -232,11 +246,12 @@ export class CreditScoringService {
    */
   private getLatestMetricValue(metrics: any[]): number {
     if (!metrics || metrics.length === 0) return 0;
-    
+
     const sortedMetrics = [...metrics].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
-    
+
     return sortedMetrics[0].value;
   }
 
@@ -245,12 +260,12 @@ export class CreditScoringService {
    */
   private calculatePlatformScore(factors: any[]): number {
     const totalWeight = factors.reduce((sum, factor) => sum + factor.weight, 0);
-    
+
     const weightedScore = factors.reduce(
-      (sum, factor) => sum + (factor.score * factor.weight), 
-      0
+      (sum, factor) => sum + factor.score * factor.weight,
+      0,
     );
-    
+
     return totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 50;
   }
 
@@ -268,7 +283,7 @@ export class CreditScoringService {
     let totalWeight = 0;
     let weightedScore = 0;
 
-    platformScores.forEach(ps => {
+    platformScores.forEach((ps) => {
       const weight = platformWeights[ps.platformType] || 0.1;
       totalWeight += weight;
       weightedScore += ps.score * weight;
@@ -294,7 +309,10 @@ export class CreditScoringService {
     return 10; // <100 followers
   }
 
-  private scoreEngagementRatio(viewCount: number, followerCount: number): number {
+  private scoreEngagementRatio(
+    viewCount: number,
+    followerCount: number,
+  ): number {
     const ratio = viewCount / followerCount;
     // On a scale of 0-100
     if (ratio >= 5) return 100; // Very high engagement
@@ -321,13 +339,17 @@ export class CreditScoringService {
 
   private scoreIncomeStability(earnings: number[]): number {
     if (earnings.length < 2) return 50; // Not enough data
-    
+
     // Calculate coefficient of variation (CV)
-    const mean = earnings.reduce((sum, value) => sum + value, 0) / earnings.length;
-    const sumSquaredDiff = earnings.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0);
+    const mean =
+      earnings.reduce((sum, value) => sum + value, 0) / earnings.length;
+    const sumSquaredDiff = earnings.reduce(
+      (sum, value) => sum + Math.pow(value - mean, 2),
+      0,
+    );
     const standardDeviation = Math.sqrt(sumSquaredDiff / earnings.length);
     const cv = (standardDeviation / mean) * 100;
-    
+
     // Lower CV = more stable income = higher score
     if (cv < 5) return 100; // Extremely stable
     if (cv < 10) return 90;
@@ -386,11 +408,11 @@ export class CreditScoringService {
     return {
       creatorId,
       overallScore: latestScore.score,
-      platformScores: latestScore.platformScores.map(ps => ({
+      platformScores: latestScore.platformScores.map((ps) => ({
         platformId: ps.platformId,
         platformType: ps.platformType,
         score: ps.score,
-        factors: ps.factors,
+        factors: ps.factors as { factor: string; score: number; weight: number }[], // Explicitly cast factors
       })),
       timestamp: latestScore.timestamp,
     };
@@ -408,14 +430,14 @@ export class CreditScoringService {
       },
     });
 
-    return scoreHistory.map(score => ({
+    return scoreHistory.map((score) => ({
       creatorId,
       overallScore: score.score,
-      platformScores: score.platformScores.map(ps => ({
+      platformScores: score.platformScores.map((ps) => ({
         platformId: ps.platformId,
         platformType: ps.platformType,
         score: ps.score,
-        factors: ps.factors,
+        factors: ps.factors as { factor: string; score: number; weight: number }[],
       })),
       timestamp: score.timestamp,
     }));
