@@ -1,17 +1,24 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+import { Role } from 'generated/prisma';
 
 export class CreateUserDto {
   @IsNotEmpty()
   @IsEmail()
   email: string;
-  
+
   @IsNotEmpty()
   @MinLength(6)
   password: string;
-  
+  @IsNotEmpty()
+  role: Role;
+
   firstName?: string;
   lastName?: string;
 }
