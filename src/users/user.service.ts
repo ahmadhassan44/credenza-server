@@ -48,7 +48,7 @@ export class UserService {
 
     const hashedPassword = await this.hashPassword(password);
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
@@ -64,6 +64,23 @@ export class UserService {
         updatedAt: true,
       },
     });
+
+    if (rest.role === 'CREATOR') {
+      await this.prisma.creator.create({
+        data: {
+          name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
+          email,
+          user: {
+            connect: {
+              id: user.id,
+            },
+          },
+        
+        },
+        
+      });
+    }
+    return user;
   }
 
   async findByEmail(email: string) {

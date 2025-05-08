@@ -12,7 +12,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       // Clean up database for testing purposes
       await this.metric.deleteMany();
       await this.platform.deleteMany();
-      await this.creator.deleteMany();
     }
   }
 }
