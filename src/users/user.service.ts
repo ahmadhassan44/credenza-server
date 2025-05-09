@@ -17,8 +17,6 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
   @IsNotEmpty()
-  role: Role;
-
   firstName?: string;
   lastName?: string;
 }
@@ -65,21 +63,17 @@ export class UserService {
       },
     });
 
-    if (rest.role === 'CREATOR') {
-      await this.prisma.creator.create({
-        data: {
-          name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
-          email,
-          user: {
-            connect: {
-              id: user.id,
-            },
+    await this.prisma.creator.create({
+      data: {
+        name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
+        email,
+        user: {
+          connect: {
+            id: user.id,
           },
-        
         },
-        
-      });
-    }
+      },
+    });
     return user;
   }
 
