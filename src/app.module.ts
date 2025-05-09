@@ -9,6 +9,7 @@ import { CreditScoringModule } from './credit-scoring/credit-scoring.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './users/user.module';
 import configuration from './config/configuration';
+import { MockingModule } from './mocking/mocking.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import configuration from './config/configuration';
     CreditScoringModule,
     AuthModule,
     UserModule,
+    MockingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
