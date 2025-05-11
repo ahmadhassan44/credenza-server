@@ -8,12 +8,10 @@ RUN npm install
 
 COPY . .
 
-RUN npm run build
-
-
-# Generate Prisma client
+# Generate Prisma client first
 RUN npx prisma generate
 
+# Then build the application
 RUN npm run build
 
 FROM node:20-alpine AS production
