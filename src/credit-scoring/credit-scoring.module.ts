@@ -1,19 +1,14 @@
 import { Module } from '@nestjs/common';
 import { CreditScoringService } from './credit-scoring.service';
 import { CreditScoringController } from './credit-scoring.controller';
-import { CreditScoringScheduler } from './credit-scoring.scheduler';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PlatformModule } from '../platforms/platform.module';
-import { ScheduleModule } from '@nestjs/schedule';
+import { MetricsModule } from 'src/metrics/metrics.module';
 
 @Module({
-  imports: [
-    PrismaModule, 
-    PlatformModule,
-    ScheduleModule.forRoot(),
-  ],
+  imports: [PrismaModule, MetricsModule],
   controllers: [CreditScoringController],
-  providers: [CreditScoringService, CreditScoringScheduler],
+  providers: [CreditScoringService],
   exports: [CreditScoringService],
 })
 export class CreditScoringModule {}
