@@ -14,6 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { GeolocationService } from 'src/geolocation/geolocation.service';
+import { Type } from 'class-transformer';
 
 class LocationDto {
   @IsNumber()
@@ -30,12 +31,13 @@ export class CreateUserDto {
   @IsNotEmpty()
   @MinLength(6)
   password: string;
-  @IsNotEmpty()
+
   firstName?: string;
   lastName?: string;
 
   @IsOptional()
   @ValidateNested({ each: true })
+  @Type(() => LocationDto)
   location: LocationDto;
 }
 
