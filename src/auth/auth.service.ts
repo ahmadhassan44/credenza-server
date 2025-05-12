@@ -14,24 +14,24 @@ export class AuthService {
 
   async validateUser(email: string, password: string) {
     const user = await this.userService.validateUser(email, password);
-    
+
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    
+
     return user;
   }
 
   async login(user: any) {
-    const payload = { 
-      email: user.email, 
+    const payload = {
+      email: user.email,
       sub: user.id,
-      role: user.role 
+      role: user.role,
     };
-    
+
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = await this.generateRefreshToken(user.id);
-    
+
     return {
       accessToken,
       refreshToken,
@@ -59,20 +59,22 @@ export class AuthService {
     }
 
     // Generate new tokens
-    const payload = { 
-      email: refreshTokenData.user.email, 
+    const payload = {
+      email: refreshTokenData.user.email,
       sub: refreshTokenData.user.id,
-      role: refreshTokenData.user.role 
+      role: refreshTokenData.user.role,
     };
-    
+
     const accessToken = this.jwtService.sign(payload);
-    const newRefreshToken = await this.generateRefreshToken(refreshTokenData.user.id);
-    
+    const newRefreshToken = await this.generateRefreshToken(
+      refreshTokenData.user.id,
+    );
+
     // Delete the old refresh token
     await this.prisma.refreshToken.delete({
       where: { id: refreshTokenData.id },
     });
-    
+
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -91,7 +93,7 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({
       where: { userId },
     });
-    
+
     return { success: true };
   }
 
@@ -99,7 +101,7 @@ export class AuthService {
     const token = uuidv4();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
-    
+
     await this.prisma.refreshToken.create({
       data: {
         token,
@@ -107,7 +109,7 @@ export class AuthService {
         expiresAt,
       },
     });
-    
+
     return token;
   }
 }

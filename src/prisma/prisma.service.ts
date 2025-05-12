@@ -10,8 +10,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   async cleanDatabase() {
     if (process.env.NODE_ENV === 'development') {
       // Clean up database for testing purposes
-      await this.metric.deleteMany();
-      await this.platform.deleteMany();
     }
   }
 }

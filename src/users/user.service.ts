@@ -5,9 +5,23 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
-import { Role } from 'generated/prisma';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { GeolocationService } from 'src/geolocation/geolocation.service';
 
+class LocationDto {
+  @IsNumber()
+  latitude: number;
+
+  @IsNumber()
+  longitude: number;
+}
 export class CreateUserDto {
   @IsNotEmpty()
   @IsEmail()
@@ -19,6 +33,10 @@ export class CreateUserDto {
   @IsNotEmpty()
   firstName?: string;
   lastName?: string;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  location: LocationDto;
 }
 
 export interface UpdateUserDto {
@@ -30,10 +48,13 @@ export interface UpdateUserDto {
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly geolocationService: GeolocationService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
-    const { email, password, ...rest } = createUserDto;
+    const { email, password, location, ...rest } = createUserDto;
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -62,6 +83,26 @@ export class UserService {
         updatedAt: true,
       },
     });
+    const { latitude, longitude } = location;
+    const geoData =
+      await this.geolocationService.getLocationDataFromCoordinates(
+        latitude,
+        longitude,
+      );
+
+    const geographicLocation =
+      await this.prisma.creatorGeographicLocation.create({
+        data: {
+          countryCode: geoData.countryCode,
+          countryName: geoData.countryName,
+          region: geoData.region,
+          currency: geoData.currency,
+          averageCpmUsd: geoData.averageCpmUsd,
+          language: geoData.language,
+          timezone: geoData.timezone,
+          creatorId: '', // This will be updated by the relation
+        },
+      });
 
     await this.prisma.creator.create({
       data: {
@@ -70,6 +111,11 @@ export class UserService {
         user: {
           connect: {
             id: user.id,
+          },
+        },
+        geographicLocation: {
+          connect: {
+            id: geographicLocation.id,
           },
         },
       },

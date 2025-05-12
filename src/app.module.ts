@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './users/user.module';
 import configuration from './config/configuration';
 import { MockingModule } from './mocking/mocking.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MockingModule } from './mocking/mocking.module';
     AuthModule,
     UserModule,
     MockingModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
