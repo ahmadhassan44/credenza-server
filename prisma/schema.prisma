@@ -124,16 +124,15 @@ enum SuperCategory {
 }
 
 model CreatorGeographicLocation {
-  id            String  @id @default(uuid())
-  countryCode   String  @unique
+  id            String    @id @default(uuid())
+  countryCode   String    @unique
   countryName   String
   region        String?
   currency      String
   averageCpmUsd Float
   language      String?
   timezone      String?
-
-  Creator Creator[]
+  Creator       Creator[]
 }
 
 enum LifecycleStage {
