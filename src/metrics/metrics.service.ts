@@ -1,4 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { GetPlatfromMetricsDto } from './dtos/get-metrics.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Metric } from 'generated/prisma';
@@ -11,8 +14,18 @@ export class MetricsService {
     private readonly mockingService: MockingService,
   ) {}
   async getMetrics(getMetricsDto: GetPlatfromMetricsDto) {
-    //first we check if we have dummy data for the creator for the given range if we do we return it
-
+    //first we check if the user has connected the platform he is trying to get metrics for
+    const platform = await this.prismaService.platform.findFirst({
+      where: {
+        creatorId: getMetricsDto.creatorId,
+        type: getMetricsDto.platformType,
+      },
+    });
+    if (!platform) {
+      throw new NotFoundException(
+        `Platform ${getMetricsDto.platformType} not connected`,
+      );
+    }
     const metrics = await this.prismaService.metric.findMany({
       where: {
         creatorId: getMetricsDto.creatorId,
