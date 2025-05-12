@@ -35,8 +35,6 @@ COPY --from=development /usr/src/app/generated ./generated
 # Copy Prisma schema for potential migrations
 COPY --from=development /usr/src/app/prisma ./prisma
 
-# Run all the migrations
-RUN npx prisma migrate deploy
 
 EXPOSE 3000
 
