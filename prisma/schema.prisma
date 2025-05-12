@@ -47,7 +47,8 @@ model Metric {
   date      DateTime // Reporting period, e.g., 2025-04-01
 
   views              Int
-  subscribersGained  Int
+  audienceSize       Int
+  postCount          Int
   avgViewDurationSec Int
   engagementRatePct  Float // (likes + comments + shares) / views * 100
 
@@ -55,14 +56,9 @@ model Metric {
   adRevenueUsd        Float? // Optional: ad earnings
   otherRevenueUsd     Float? // Optional: merch, affiliates, etc.
 
-  cpmUsd           Float // Cost per mille (CPM)
-  growthStage      LifecycleStage
-  location         String // Country code like "US", "IN"
-  trendMultiplier  Float // Factor for trending category
-  seasonalityBoost Float // Factor for seasonal boost
 
-  Platform   Platform @relation(fields: [platformId], references: [id])
   platformId String
+  Platform   Platform @relation(fields: [platformId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
