@@ -1,8 +1,19 @@
-import { Controller, Post, Body, Get, Param, UseGuards, Logger, Request, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  UseGuards,
+  Logger,
+  Request,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PlatformService } from './platform.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ConnectPlatformDto } from './dtos/connect-platform.dto';
 
 @Controller('platforms')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -14,20 +25,20 @@ export class PlatformController {
   @Post('connect')
   @Roles('CREATOR', 'ADMIN')
   async connectPlatform(
-    @Body() connectDto: { type: string; creatorId: string; credentials: any },
-    @Request() req,
+    @Body() connectDto: ConnectPlatformDto,
+    @Request() req: Request,
   ) {
-    // Verify user is authorized to connect this creator's platform
-    if (req.user.role !== 'ADMIN' && req.user.creatorId !== connectDto.creatorId) {
-      throw new ForbiddenException('You can only connect platforms for your own creator account');
-    }
-    
-    this.logger.log(`Connecting to platform ${connectDto.type} for creator ${connectDto.creatorId}`);
-    return this.platformService.connectPlatform(
-      connectDto.type,
-      connectDto.creatorId,
-      connectDto.credentials,
+    const { type, handle, creatorId } = connectDto;
+
+    this.logger.log(
+      `Connecting ${type} platform for creator ${creatorId} with handle ${handle}`,
     );
+
+    // Validate the platform type
+    if (!['YOUTUBE', 'PATREON', 'INSTAGRAM'].includes(type)) {
+      throw new ForbiddenException('Invalid platform type');
+    }
+    return this.platformService.connectPlatform(connectDto);
   }
 
   @Get()
@@ -43,10 +54,12 @@ export class PlatformController {
     if (req.user.role !== 'ADMIN') {
       const platform = await this.platformService.getPlatformById(id);
       if (!platform || platform.creatorId !== req.user.creatorId) {
-        throw new ForbiddenException('You can only refresh metrics for your own platforms');
+        throw new ForbiddenException(
+          'You can only refresh metrics for your own platforms',
+        );
       }
     }
-    
+
     this.logger.log(`Manually refreshing metrics for platform ${id}`);
     return this.platformService.refreshMetrics(id);
   }
