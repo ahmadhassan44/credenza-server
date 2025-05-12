@@ -211,8 +211,8 @@ export class UserService {
   }
   async getUserProfile(userId: string, userRole: string) {
     if (userRole === 'CREATOR') {
-      return await this.prisma.creator.findUnique({
-        where: { id: userId },
+      const creator = await this.prisma.creator.findUnique({
+        where: { userId: userId },
         include: {
           // User information
           user: {
@@ -250,6 +250,7 @@ export class UserService {
           },
         },
       });
+      return creator;
     }
 
     // Handle other user roles

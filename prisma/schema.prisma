@@ -125,7 +125,7 @@ enum SuperCategory {
 
 model CreatorGeographicLocation {
   id            String    @id @default(uuid())
-  countryCode   String    @unique
+  countryCode   String
   countryName   String
   region        String?
   currency      String
