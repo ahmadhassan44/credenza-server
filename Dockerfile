@@ -38,4 +38,4 @@ COPY --from=development /usr/src/app/prisma ./prisma
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+ENTRYPOINT [ "npm", "run", "start:prod" ]
