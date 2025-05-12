@@ -100,7 +100,6 @@ export class UserService {
           averageCpmUsd: geoData.averageCpmUsd,
           language: geoData.language,
           timezone: geoData.timezone,
-          creatorId: '', // This will be updated by the relation
         },
       });
 
@@ -207,5 +206,51 @@ export class UserService {
   private async hashPassword(password: string): Promise<string> {
     const saltRounds = 10;
     return bcrypt.hash(password, saltRounds);
+  }
+  async getUserProfile(userId: string, userRole: string) {
+    if (userRole === 'CREATOR') {
+      return await this.prisma.creator.findUnique({
+        where: { id: userId },
+        include: {
+          // User information
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+          // Geographic location details
+          geographicLocation: true,
+          // Connected platforms
+          platforms: true,
+          // Credit scores history
+          creditScores: {
+            orderBy: {
+              timestamp: 'desc',
+            },
+            include: {
+              platformScores: true,
+            },
+          },
+          // Metrics data with optional filters
+          Metric: {
+            orderBy: {
+              date: 'desc',
+            },
+            take: 30, // Limit to last 30 metrics entries
+            include: {
+              Platform: true,
+            },
+          },
+        },
+      });
+    }
+
+    // Handle other user roles
+    return null;
   }
 }
