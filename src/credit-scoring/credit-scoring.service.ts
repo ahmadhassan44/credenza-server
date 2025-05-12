@@ -86,7 +86,7 @@ export class CreditScoringService {
             platformId: ps.platformId,
             platformType: ps.platformType,
             score: ps.score,
-            factors: ps.factors,
+            factors: JSON.stringify(ps.factors),
           })),
         },
       },
