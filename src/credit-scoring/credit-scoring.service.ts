@@ -1,13 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PlatformService } from '../platforms/platform.service';
 
 // Define meaningful types for better code clarity
 interface ScoringFactor {
   factor: string;
   score: number;
   weight: number;
-  description?: string; // Added description for transparency
+  description?: string;
 }
 
 interface PlatformScoreData {
@@ -31,10 +30,13 @@ export class CreditScoringService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Generate a credit score for a creator based on their platform metrics
+   * Generate credit scores for a creator based on monthly metrics
+   * This generates separate credit scores for each month with available metrics
    */
-  async generateCreatorScore(creatorId: string): Promise<CreditScore> {
-    this.logger.log(`Generating credit score for creator ${creatorId}`);
+  async generateCreatorScore(creatorId: string): Promise<CreditScore[]> {
+    this.logger.log(
+      `Generating monthly credit scores for creator ${creatorId}`,
+    );
 
     const creator = await this.prisma.creator.findUnique({
       where: { id: creatorId },
@@ -47,60 +49,210 @@ export class CreditScoringService {
       throw new Error(`Creator with ID ${creatorId} not found`);
     }
 
-    // Get latest metrics for each platform (past 3 months)
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    // Get metrics for the past 12 months
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
     const metrics = await this.prisma.metric.findMany({
       where: {
         creatorId: creator.id,
-        date: { gte: threeMonthsAgo },
+        date: { gte: twelveMonthsAgo },
       },
       orderBy: { date: 'desc' },
     });
 
-    // Group metrics by platform
-    const metricsByPlatform = this.groupMetricsByPlatform(metrics);
+    if (!metrics || metrics.length === 0) {
+      throw new Error(`No metrics found for creator ${creatorId}`);
+    }
 
-    // Score each platform
-    const platformScores: PlatformScoreData[] = [];
+    // Group metrics by month
+    const metricsByMonth = this.groupMetricsByMonth(metrics);
 
-    for (const platform of creator.platforms) {
-      const platformMetrics = metricsByPlatform[platform.id] || [];
-      if (platformMetrics.length > 0) {
-        const score = await this.scorePlatform(platform, platformMetrics);
-        platformScores.push(score);
+    // Generate a credit score for each month
+    const monthlyScores: CreditScore[] = [];
+
+    for (const [monthKey, monthlyMetrics] of Object.entries(metricsByMonth)) {
+      // Extract date from month key (format: YYYY-MM)
+      const [year, month] = monthKey.split('-').map((num) => parseInt(num));
+      const scoreDate = new Date(year, month - 1); // JS months are 0-indexed
+
+      // Group the month's metrics by platform
+      const metricsByPlatform = this.groupMetricsByPlatform(monthlyMetrics);
+
+      // Score each platform for this month
+      const platformScores: PlatformScoreData[] = [];
+
+      for (const platform of creator.platforms) {
+        const platformMetrics = metricsByPlatform[platform.id] || [];
+        if (platformMetrics.length > 0) {
+          const score = await this.scorePlatform(platform, platformMetrics);
+          platformScores.push(score);
+        }
+      }
+
+      if (platformScores.length > 0) {
+        // Calculate overall score for this month
+        const overallScore = this.calculateOverallScore(platformScores);
+
+        // Create and store the monthly credit score
+        const creditScore = await this.prisma.creditScore.create({
+          data: {
+            score: overallScore,
+            creator: { connect: { id: creatorId } },
+            timestamp: scoreDate,
+            platformScores: {
+              create: platformScores.map((ps) => ({
+                platformId: ps.platformId,
+                platformType: ps.platformType,
+                score: ps.score,
+                factors: JSON.stringify(ps.factors),
+              })),
+            },
+          },
+          include: {
+            platformScores: true,
+          },
+        });
+
+        monthlyScores.push({
+          creatorId,
+          overallScore,
+          platformScores,
+          timestamp: creditScore.timestamp,
+        });
       }
     }
 
-    // Calculate overall score
-    const overallScore = this.calculateOverallScore(platformScores);
+    return monthlyScores.sort(
+      (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+    );
+  }
 
-    // Create and store the credit score
-    const creditScore = await this.prisma.creditScore.create({
-      data: {
-        score: overallScore,
-        creator: { connect: { id: creatorId } },
-        platformScores: {
-          create: platformScores.map((ps) => ({
-            platformId: ps.platformId,
-            platformType: ps.platformType,
-            score: ps.score,
-            factors: JSON.stringify(ps.factors),
-          })),
-        },
-      },
+  /**
+   * Group metrics by month (format: YYYY-MM)
+   */
+  private groupMetricsByMonth(metrics: any[]): Record<string, any[]> {
+    return metrics.reduce((acc, metric) => {
+      const date = new Date(metric.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      if (!acc[monthKey]) {
+        acc[monthKey] = [];
+      }
+      acc[monthKey].push(metric);
+      return acc;
+    }, {});
+  }
+
+  /**
+   * Get creator's latest aggregated credit score
+   * This aggregates the most recent months into a single score
+   */
+  async getCreatorLatestScore(creatorId: string): Promise<CreditScore | null> {
+    // First check if there are any scores
+    const scores = await this.prisma.creditScore.findMany({
+      where: { creatorId },
+      orderBy: { timestamp: 'desc' },
+      take: 3, // Get the most recent 3 months for aggregation
       include: {
         platformScores: true,
       },
     });
 
+    if (!scores || scores.length === 0) return null;
+
+    // Calculate the average score for the recent months
+    const overallScore = Math.round(
+      scores.reduce((sum, score) => sum + score.score, 0) / scores.length,
+    );
+
+    // Aggregate platform scores
+    const platformScoresMap = new Map<
+      string,
+      {
+        platformId: string;
+        platformType: string;
+        scores: number[];
+        allFactors: any[];
+      }
+    >();
+
+    // Collect all platform scores
+    scores.forEach((score) => {
+      score.platformScores.forEach((ps) => {
+        const key = ps.platformId;
+        if (!platformScoresMap.has(key)) {
+          platformScoresMap.set(key, {
+            platformId: ps.platformId,
+            platformType: ps.platformType,
+            scores: [],
+            allFactors: [],
+          });
+        }
+
+        const platformData = platformScoresMap.get(key);
+        if (platformData) {
+          platformData.scores.push(ps.score);
+          platformData.allFactors.push(JSON.parse(ps.factors as string));
+        }
+      });
+    });
+
+    // Calculate aggregated platform scores
+    const aggregatedPlatformScores: PlatformScoreData[] = [];
+
+    platformScoresMap.forEach((data) => {
+      const avgScore = Math.round(
+        data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length,
+      );
+
+      // Aggregate factors (latest month's factors are kept for simplicity)
+      const factors = data.allFactors[0];
+
+      aggregatedPlatformScores.push({
+        platformId: data.platformId,
+        platformType: data.platformType,
+        score: avgScore,
+        factors,
+      });
+    });
+
     return {
       creatorId,
       overallScore,
-      platformScores,
-      timestamp: creditScore.timestamp,
+      platformScores: aggregatedPlatformScores,
+      timestamp: new Date(), // Current time as this is an aggregated view
     };
+  }
+
+  /**
+   * Get creator's credit score history
+   * This returns individual monthly credit scores
+   */
+  async getCreatorScoreHistory(creatorId: string): Promise<CreditScore[]> {
+    const scoreHistory = await this.prisma.creditScore.findMany({
+      where: { creatorId },
+      orderBy: { timestamp: 'desc' },
+      include: {
+        platformScores: true,
+      },
+    });
+
+    if (scoreHistory.length === 0) {
+      return [];
+    }
+
+    return scoreHistory.map((score) => ({
+      creatorId,
+      overallScore: score.score,
+      platformScores: score.platformScores.map((ps) => ({
+        platformId: ps.platformId,
+        platformType: ps.platformType,
+        score: ps.score,
+        factors: JSON.parse(ps.factors as string),
+      })),
+      timestamp: score.timestamp,
+    }));
   }
 
   /**
@@ -434,70 +586,13 @@ export class CreditScoringService {
 
     // On a scale of 0-100
     if (durationMin >= 15) return 100; // 15+ minutes
-    if (durationMin >= 12) return 90;
-    if (durationMin >= 10) return 80;
-    if (durationMin >= 8) return 70;
-    if (durationMin >= 6) return 60;
-    if (durationMin >= 5) return 50;
-    if (durationMin >= 4) return 40;
-    if (durationMin >= 3) return 30;
-    if (durationMin >= 2) return 20;
-    return 10; // <2 minutes
-  }
-
-  /**
-   * Get creator's latest credit score
-   */
-  async getCreatorLatestScore(creatorId: string): Promise<CreditScore | null> {
-    const latestScore = await this.prisma.creditScore.findFirst({
-      where: { creatorId },
-      orderBy: { timestamp: 'desc' },
-      include: {
-        platformScores: true,
-      },
-    });
-
-    if (!latestScore) return null;
-
-    return {
-      creatorId,
-      overallScore: latestScore.score,
-      platformScores: latestScore.platformScores.map((ps) => ({
-        platformId: ps.platformId,
-        platformType: ps.platformType,
-        score: ps.score,
-        factors: JSON.parse(ps.factors as string), // Parse from JSON string
-      })),
-      timestamp: latestScore.timestamp,
-    };
-  }
-
-  /**
-   * Get creator's credit score history
-   */
-  async getCreatorScoreHistory(creatorId: string): Promise<CreditScore[]> {
-    const scoreHistory = await this.prisma.creditScore.findMany({
-      where: { creatorId },
-      orderBy: { timestamp: 'desc' },
-      include: {
-        platformScores: true,
-      },
-    });
-
-    return scoreHistory.map((score) => ({
-      creatorId,
-      overallScore: score.score,
-      platformScores: score.platformScores.map((ps) => ({
-        platformId: ps.platformId,
-        platformType: ps.platformType,
-        score: ps.score,
-        factors: ps.factors as {
-          factor: string;
-          score: number;
-          weight: number;
-        }[],
-      })),
-      timestamp: score.timestamp,
-    }));
+    if (durationMin >= 10) return 90;
+    if (durationMin >= 5) return 80;
+    if (durationMin >= 3) return 70;
+    if (durationMin >= 2) return 60;
+    if (durationMin >= 1) return 50;
+    if (durationMin >= 0.5) return 40;
+    if (durationMin >= 0.1) return 20;
+    return 10; // <6 seconds
   }
 }
