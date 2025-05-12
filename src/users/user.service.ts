@@ -1,19 +1,44 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { GeolocationService } from 'src/geolocation/geolocation.service';
+import { Type } from 'class-transformer';
 
+class LocationDto {
+  @IsNumber()
+  latitude: number;
+
+  @IsNumber()
+  longitude: number;
+}
 export class CreateUserDto {
   @IsNotEmpty()
   @IsEmail()
   email: string;
-  
+
   @IsNotEmpty()
   @MinLength(6)
   password: string;
-  
+
   firstName?: string;
   lastName?: string;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => LocationDto)
+  location: LocationDto;
 }
 
 export interface UpdateUserDto {
@@ -25,10 +50,13 @@ export interface UpdateUserDto {
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly geolocationService: GeolocationService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
-    const { email, password, ...rest } = createUserDto;
+    const { email, password, location, ...rest } = createUserDto;
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -41,7 +69,7 @@ export class UserService {
 
     const hashedPassword = await this.hashPassword(password);
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
@@ -57,6 +85,43 @@ export class UserService {
         updatedAt: true,
       },
     });
+    const { latitude, longitude } = location;
+    const geoData =
+      await this.geolocationService.getLocationDataFromCoordinates(
+        latitude,
+        longitude,
+      );
+
+    const geographicLocation =
+      await this.prisma.creatorGeographicLocation.create({
+        data: {
+          countryCode: geoData.countryCode,
+          countryName: geoData.countryName,
+          region: geoData.region,
+          currency: geoData.currency,
+          averageCpmUsd: geoData.averageCpmUsd,
+          language: geoData.language,
+          timezone: geoData.timezone,
+        },
+      });
+
+    const creator = await this.prisma.creator.create({
+      data: {
+        name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
+        email,
+        user: {
+          connect: {
+            id: user.id,
+          },
+        },
+        geographicLocation: {
+          connect: {
+            id: geographicLocation.id,
+          },
+        },
+      },
+    });
+    return { user, creatorId: creator.id };
   }
 
   async findByEmail(email: string) {
@@ -143,5 +208,52 @@ export class UserService {
   private async hashPassword(password: string): Promise<string> {
     const saltRounds = 10;
     return bcrypt.hash(password, saltRounds);
+  }
+  async getUserProfile(userId: string, userRole: string) {
+    if (userRole === 'CREATOR') {
+      const creator = await this.prisma.creator.findUnique({
+        where: { userId: userId },
+        include: {
+          // User information
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+          // Geographic location details
+          geographicLocation: true,
+          // Connected platforms
+          platforms: true,
+          // Credit scores history
+          creditScores: {
+            orderBy: {
+              timestamp: 'desc',
+            },
+            include: {
+              platformScores: true,
+            },
+          },
+          // Metrics data with optional filters
+          Metric: {
+            orderBy: {
+              date: 'desc',
+            },
+            take: 30, // Limit to last 30 metrics entries
+            include: {
+              Platform: true,
+            },
+          },
+        },
+      });
+      return creator;
+    }
+
+    // Handle other user roles
+    return null;
   }
 }

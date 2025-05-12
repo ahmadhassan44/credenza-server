@@ -15,80 +15,130 @@ datasource db {
 }
 
 model Creator {
-  id           String        @id @default(uuid())
-  name         String
-  email        String        @unique
-  platforms    Platform[]
-  creditScores CreditScore[]
-  user         User?         @relation(fields: [userId], references: [id])
-  userId       String?       @unique
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                   String                     @id @default(uuid())
+  name                 String
+  email                String                     @unique
+  platforms            Platform[]
+  creditScores         CreditScore[]
+  user                 User?                      @relation(fields: [userId], references: [id])
+  userId               String?                    @unique
+  contentCategory      SuperCategory              @default(COMPUTER_SCIENCE_TECH)
+  geographicLocation   CreatorGeographicLocation? @relation(fields: [geographicLocationId], references: [id])
+  geographicLocationId String?
+  lifecycleStage       LifecycleStage             @default(NEW)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  Metric               Metric[]
 }
 
 model Platform {
   id        String   @id @default(uuid())
-  type      String   // YOUTUBE, PATREON, INSTAGRAM
+  type      String // YOUTUBE, PATREON, INSTAGRAM
   handle    String
   creatorId String
   creator   Creator  @relation(fields: [creatorId], references: [id])
-  metrics   Metric[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  Metric    Metric[]
 }
 
 model Metric {
-  id         String   @id @default(uuid())
+  id        String   @id @default(uuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id])
+  date      DateTime // Reporting period, e.g., 2025-04-01
+
+  views              Int
+  audienceSize       Int
+  postCount          Int
+  avgViewDurationSec Int
+  engagementRatePct  Float // (likes + comments + shares) / views * 100
+
+  estimatedRevenueUsd Float // Total revenue for the month
+  adRevenueUsd        Float? // Optional: ad earnings
+  otherRevenueUsd     Float? // Optional: merch, affiliates, etc.
+
   platformId String
-  platform   Platform @relation(fields: [platformId], references: [id])
-  type       String   // FOLLOWERS, VIEWS, EARNINGS
-  value      Float
-  timestamp  DateTime @default(now())
+  Platform   Platform @relation(fields: [platformId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model CreditScore {
-  id             String            @id @default(uuid())
+  id             String          @id @default(uuid())
   creatorId      String
-  creator        Creator           @relation(fields: [creatorId], references: [id])
-  score          Int               // Overall credit score (0-100)
+  creator        Creator         @relation(fields: [creatorId], references: [id])
+  score          Int // Overall credit score (0-100)
   platformScores PlatformScore[]
-  timestamp      DateTime          @default(now())
+  timestamp      DateTime        @default(now())
 }
 
 model PlatformScore {
-  id             String       @id @default(uuid())
-  creditScoreId  String
-  creditScore    CreditScore  @relation(fields: [creditScoreId], references: [id], onDelete: Cascade)
-  platformId     String
-  platformType   String
-  score          Int          // Platform-specific score (0-100)
-  factors        Json         // Array of scoring factors with weights
+  id            String      @id @default(uuid())
+  creditScoreId String
+  creditScore   CreditScore @relation(fields: [creditScoreId], references: [id], onDelete: Cascade)
+  platformId    String
+  platformType  String
+  score         Int // Platform-specific score (0-100)
+  factors       Json // Array of scoring factors with weights
 }
 
 model User {
-  id             String       @id @default(uuid())
-  email          String       @unique
-  password       String
-  firstName      String?
-  lastName       String?
-  role           Role         @default(USER)
-  creator        Creator?
-  refreshTokens  RefreshToken[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  firstName     String?
+  lastName      String?
+  role          Role           @default(CREATOR)
+  creator       Creator?
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model RefreshToken {
-  id          String   @id @default(uuid())
-  token       String   @unique
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 enum Role {
   USER
   CREATOR
   ADMIN
+}
+
+enum SuperCategory {
+  KNOWLEDGE_LEARNING
+  BUSINESS_FINANCE
+  COMPUTER_SCIENCE_TECH
+  ARTS_CREATIVITY
+  ENTERTAINMENT_MEDIA
+  GAMING_INTERACTIVE
+  MUSIC_AUDIO
+  HEALTH_WELLNESS
+  LIFESTYLE_PERSONAL
+  SOCIETY_CULTURE
+  REVIEWS_PRODUCTS
+}
+
+model CreatorGeographicLocation {
+  id            String    @id @default(uuid())
+  countryCode   String
+  countryName   String
+  region        String?
+  currency      String
+  averageCpmUsd Float
+  language      String?
+  timezone      String?
+  Creator       Creator[]
+}
+
+enum LifecycleStage {
+  NEW // Just started, low data, low revenue, high volatility
+  GROWTH // Rapidly increasing audience and income
+  STABLE // Consistent views and revenue over time
+  DECLINE // Decreasing engagement, possibly losing relevance
+  INACTIVE // No recent activity, income mostly residual
 }

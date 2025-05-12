@@ -8,6 +8,10 @@ RUN npm install
 
 COPY . .
 
+# Generate Prisma client first
+RUN npx prisma generate
+
+# Then build the application
 RUN npm run build
 
 FROM node:20-alpine AS production
@@ -21,9 +25,17 @@ COPY package*.json ./
 
 RUN npm install --only=production
 
+# Copy built app
 COPY --from=development /usr/src/app/dist ./dist
+
+# Copy Prisma files
 COPY --from=development /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=development /usr/src/app/generated ./generated
+
+# Copy Prisma schema for potential migrations
+COPY --from=development /usr/src/app/prisma ./prisma
+
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+ENTRYPOINT [ "npm", "run", "start:prod" ]

@@ -30,54 +30,54 @@ export class CreditScoringService {
   /**
    * Generate a credit score for a creator based on their platform metrics
    */
-  async generateCreatorScore(creatorId: string): Promise<CreditScore> {
+  async generateCreatorScore(creatorId: string) {
     this.logger.log(`Generating credit score for creator ${creatorId}`);
 
-    const creator = await this.prisma.creator.findUnique({
-      where: { id: creatorId },
-      include: {
-        platforms: {
-          include: {
-            metrics: true,
-          },
-        },
-      },
-    });
+    // const creator = await this.prisma.creator.findUnique({
+    //   where: { id: creatorId },
+    //   include: {
+    //     platforms: {
+    //       include: {
+    //         metrics: true,
+    //       },
+    //     },
+    //   },
+    // });
 
-    if (!creator) {
-      throw new Error(`Creator with ID ${creatorId} not found`);
-    }
+    // if (!creator) {
+    //   throw new Error(`Creator with ID ${creatorId} not found`);
+    // }
 
-    // Calculate platform-specific scores
-    const platformScores = await Promise.all(
-      creator.platforms.map((platform) => this.scorePlatform(platform)),
-    );
+    // // Calculate platform-specific scores
+    // const platformScores = await Promise.all(
+    //   creator.platforms.map((platform) => this.scorePlatform(platform)),
+    // );
 
-    // Calculate overall score (weighted average of platform scores)
-    const overallScore = this.calculateOverallScore(platformScores);
+    // // Calculate overall score (weighted average of platform scores)
+    // const overallScore = this.calculateOverallScore(platformScores);
 
-    // Create and store the credit score
-    const creditScore = await this.prisma.creditScore.create({
-      data: {
-        score: overallScore,
-        creator: { connect: { id: creatorId } },
-        platformScores: {
-          create: platformScores.map((ps) => ({
-            platformId: ps.platformId,
-            platformType: ps.platformType,
-            score: ps.score,
-            factors: ps.factors as { factor: string; score: number; weight: number }[],
-          })),
-        },
-      },
-    });
+    // // Create and store the credit score
+    // const creditScore = await this.prisma.creditScore.create({
+    //   data: {
+    //     score: overallScore,
+    //     creator: { connect: { id: creatorId } },
+    //     platformScores: {
+    //       create: platformScores.map((ps) => ({
+    //         platformId: ps.platformId,
+    //         platformType: ps.platformType,
+    //         score: ps.score,
+    //         factors: ps.factors as { factor: string; score: number; weight: number }[],
+    //       })),
+    //     },
+    //   },
+    // });
 
-    return {
-      creatorId,
-      overallScore,
-      platformScores,
-      timestamp: creditScore.timestamp,
-    };
+    // return {
+    //   creatorId,
+    //   overallScore,
+    //   platformScores,
+    //   timestamp: creditScore.timestamp,
+    // };
   }
 
   /**
@@ -412,7 +412,11 @@ export class CreditScoringService {
         platformId: ps.platformId,
         platformType: ps.platformType,
         score: ps.score,
-        factors: ps.factors as { factor: string; score: number; weight: number }[], // Explicitly cast factors
+        factors: ps.factors as {
+          factor: string;
+          score: number;
+          weight: number;
+        }[], // Explicitly cast factors
       })),
       timestamp: latestScore.timestamp,
     };
@@ -437,7 +441,11 @@ export class CreditScoringService {
         platformId: ps.platformId,
         platformType: ps.platformType,
         score: ps.score,
-        factors: ps.factors as { factor: string; score: number; weight: number }[],
+        factors: ps.factors as {
+          factor: string;
+          score: number;
+          weight: number;
+        }[],
       })),
       timestamp: score.timestamp,
     }));
