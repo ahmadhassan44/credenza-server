@@ -5,48 +5,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  MinLength,
-  ValidateNested,
-} from 'class-validator';
+
 import { GeolocationService } from 'src/geolocation/geolocation.service';
 import { Type } from 'class-transformer';
-
-class LocationDto {
-  @IsNumber()
-  latitude: number;
-
-  @IsNumber()
-  longitude: number;
-}
-export class CreateUserDto {
-  @IsNotEmpty()
-  @IsEmail()
-  email: string;
-
-  @IsNotEmpty()
-  @MinLength(6)
-  password: string;
-
-  firstName?: string;
-  lastName?: string;
-
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => LocationDto)
-  location: LocationDto;
-}
-
-export interface UpdateUserDto {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  password?: string;
-}
+import { CreateUserDto, UpdateUserDto } from './dtos/user.dtos';
 
 @Injectable()
 export class UserService {
