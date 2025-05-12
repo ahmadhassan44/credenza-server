@@ -47,42 +47,53 @@ export class UserService {
         updatedAt: true,
       },
     });
-    const { latitude, longitude } = location;
-    const geoData =
-      await this.geolocationService.getLocationDataFromCoordinates(
-        latitude,
-        longitude,
-      );
 
-    const geographicLocation =
-      await this.prisma.creatorGeographicLocation.create({
-        data: {
-          countryCode: geoData.countryCode,
-          countryName: geoData.countryName,
-          region: geoData.region,
-          currency: geoData.currency,
-          averageCpmUsd: geoData.averageCpmUsd,
-          language: geoData.language,
-          timezone: geoData.timezone,
-        },
-      });
-
-    const creator = await this.prisma.creator.create({
-      data: {
-        name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
-        email,
-        user: {
-          connect: {
-            id: user.id,
-          },
-        },
-        geographicLocation: {
-          connect: {
-            id: geographicLocation.id,
-          },
+    // Creator data to be populated
+    const creatorData: any = {
+      name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
+      email,
+      user: {
+        connect: {
+          id: user.id,
         },
       },
+    };
+
+    // Only process location if it exists
+    if (location) {
+      const { latitude, longitude } = location;
+      const geoData =
+        await this.geolocationService.getLocationDataFromCoordinates(
+          latitude,
+          longitude,
+        );
+
+      const geographicLocation =
+        await this.prisma.creatorGeographicLocation.create({
+          data: {
+            countryCode: geoData.countryCode,
+            countryName: geoData.countryName,
+            region: geoData.region,
+            currency: geoData.currency,
+            averageCpmUsd: geoData.averageCpmUsd,
+            language: geoData.language,
+            timezone: geoData.timezone,
+          },
+        });
+
+      // Add geographic location to creator data if we have it
+      creatorData.geographicLocation = {
+        connect: {
+          id: geographicLocation.id,
+        },
+      };
+    }
+
+    // Create creator with the prepared data
+    const creator = await this.prisma.creator.create({
+      data: creatorData,
     });
+
     return { user, creatorId: creator.id };
   }
 
