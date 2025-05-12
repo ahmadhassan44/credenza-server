@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Metric } from 'generated/prisma';
 import { CATEGORY_TAGS } from 'src/commons/content-category-tags';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -28,6 +28,7 @@ export class MockingService {
     creatorId: string,
     forPeriod: Date,
     platformType: string,
+    metricsQuality: string = 'NORMAL', // Default to NORMAL if not provided
   ): Promise<Metric> {
     // Get the creator with all relevant profile data
     const creator = await this.prismaService.creator.findUnique({
@@ -41,7 +42,7 @@ export class MockingService {
     });
 
     if (!creator) {
-      throw new Error(`Creator with ID ${creatorId} not found`);
+      throw new NotFoundException(`Creator with ID ${creatorId} not found`);
     }
 
     // Find the specific platform record to link metrics to
@@ -64,15 +65,19 @@ export class MockingService {
     // Add lifecycle stage factor
     const lifecycleFactor = this.getLifecycleFactor(creator.lifecycleStage);
 
+    // Apply quality multiplier based on requested metrics quality
+    const qualityMultiplier = this.getQualityMultiplier(metricsQuality);
+
     // Add small random variations for realistic data
     const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
 
-    // Calculate final metrics values
+    // Calculate final metrics values with quality factor
     const views = Math.round(
       baseMetrics.views *
         platformMultiplier.views *
         seasonalFactor *
         lifecycleFactor *
+        qualityMultiplier.views *
         randomFactor,
     );
 
@@ -80,20 +85,39 @@ export class MockingService {
       baseMetrics.audienceSize *
         platformMultiplier.audienceSize *
         seasonalFactor *
-        lifecycleFactor,
+        lifecycleFactor *
+        qualityMultiplier.audience,
     );
 
     const postCount = Math.max(
       1,
       Math.round(
-        baseMetrics.postCount * platformMultiplier.postCount * randomFactor,
+        baseMetrics.postCount *
+          platformMultiplier.postCount *
+          randomFactor *
+          qualityMultiplier.activity,
       ),
     );
 
     const avgViewDurationSec = Math.round(
       baseMetrics.avgViewDuration *
         platformMultiplier.avgViewDuration *
-        randomFactor,
+        randomFactor *
+        qualityMultiplier.engagement,
+    );
+
+    // Calculate engagement rate based on quality
+    const engagementRatePct = this.calculateEngagementRate(
+      platformType,
+      qualityMultiplier.engagement,
+    );
+
+    // Calculate estimated revenue based on views, engagement and quality
+    const estimatedRevenueUsd = this.calculateEstimatedRevenue(
+      views,
+      platformType,
+      qualityMultiplier.revenue,
+      creator.geographicLocation?.averageCpmUsd,
     );
 
     // Create the metric record
@@ -106,8 +130,8 @@ export class MockingService {
         audienceSize,
         postCount,
         avgViewDurationSec,
-        engagementRatePct: 0, // Provide a default or calculated value
-        estimatedRevenueUsd: 0, // Provide a default or calculated value
+        engagementRatePct,
+        estimatedRevenueUsd,
       },
     });
     return metric;
@@ -257,5 +281,104 @@ export class MockingService {
     };
 
     return lifecycleFactors[lifecycleStage] || 1.0;
+  }
+
+  /**
+   * Get quality multiplier based on requested metrics quality
+   */
+  private getQualityMultiplier(quality: string = 'NORMAL'): {
+    views: number;
+    audience: number;
+    engagement: number;
+    activity: number;
+    revenue: number;
+  } {
+    switch (quality.toUpperCase()) {
+      case 'GOOD':
+        return {
+          views: 1.5,
+          audience: 1.3,
+          engagement: 1.7,
+          activity: 1.2,
+          revenue: 2.0,
+        };
+      case 'BAD':
+        return {
+          views: 0.6,
+          audience: 0.8,
+          engagement: 0.5,
+          activity: 0.7,
+          revenue: 0.4,
+        };
+      case 'NORMAL':
+      default:
+        return {
+          views: 1.0,
+          audience: 1.0,
+          engagement: 1.0,
+          activity: 1.0,
+          revenue: 1.0,
+        };
+    }
+  }
+
+  /**
+   * Calculate engagement rate based on platform type and quality
+   */
+  private calculateEngagementRate(
+    platformType: string,
+    engagementFactor: number,
+  ): number {
+    // Base engagement rates by platform
+    const baseEngagementRates = {
+      YOUTUBE: 2.5,
+      TIKTOK: 5.7,
+      INSTAGRAM: 4.2,
+      PATREON: 8.5,
+      TWITCH: 3.2,
+      SUBSTACK: 6.8,
+    };
+
+    const baseRate = baseEngagementRates[platformType] || 3.0;
+
+    // Add some randomness
+    const randomVariation = 0.7 + Math.random() * 0.6; // 0.7 to 1.3
+
+    // Calculate final rate with one decimal precision
+    return parseFloat(
+      (baseRate * engagementFactor * randomVariation).toFixed(1),
+    );
+  }
+
+  /**
+   * Calculate estimated revenue based on views and platform
+   */
+  private calculateEstimatedRevenue(
+    views: number,
+    platformType: string,
+    revenueFactor: number,
+    averageCpmUsd?: number,
+  ): number {
+    // Base CPM rates by platform ($ per 1000 views)
+    const baseCpmRates = {
+      YOUTUBE: 2.0,
+      TIKTOK: 1.0,
+      INSTAGRAM: 1.5,
+      PATREON: 50.0, // Subscription model - higher effective CPM
+      TWITCH: 3.5,
+      SUBSTACK: 40.0, // Subscription model
+    };
+
+    // Use geographic CPM if available, otherwise use platform default
+    const baseCpm = averageCpmUsd || baseCpmRates[platformType] || 2.0;
+
+    // Calculate revenue with random variation
+    const randomVariation = 0.8 + Math.random() * 0.4; // 0.8 to 1.2
+
+    // Calculate revenue based on views/1000 * CPM * quality factor
+    const revenue = (views / 1000) * baseCpm * revenueFactor * randomVariation;
+
+    // Return with 2 decimal places for currency
+    return parseFloat(revenue.toFixed(2));
   }
 }

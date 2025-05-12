@@ -25,7 +25,10 @@ export class CreditScoringController {
 
   @Post('generate/:creatorId')
   @Roles('CREATOR', 'ADMIN')
-  async generateScore(@Param('creatorId') creatorId: string, @Request() req) {
+  async generateScore(
+    @Param('creatorId') creatorId: string,
+    @Request() req,
+  ): Promise<CreditScore[]> {
     try {
       // Check if the user has permission to generate a score for this creator
       if (req.user.role !== 'ADMIN' && req.user.creatorId !== creatorId) {
@@ -34,16 +37,18 @@ export class CreditScoringController {
         );
       }
 
-      this.logger.log(`Generating credit score for creator ${creatorId}`);
+      this.logger.log(
+        `Generating monthly credit scores for creator ${creatorId}`,
+      );
       return await this.creditScoringService.generateCreatorScore(creatorId);
     } catch (error) {
       if (error instanceof ForbiddenException) {
         throw error;
       }
 
-      this.logger.error(`Failed to generate credit score: ${error.message}`);
+      this.logger.error(`Failed to generate credit scores: ${error.message}`);
       throw new HttpException(
-        `Failed to generate credit score: ${error.message}`,
+        `Failed to generate credit scores: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
