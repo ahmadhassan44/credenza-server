@@ -14,6 +14,7 @@ import { CreditScoringService, CreditScore } from './credit-scoring.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Cron } from '@nestjs/schedule';
 
 @Controller('credit-scoring')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -71,13 +72,20 @@ export class CreditScoringController {
         await this.creditScoringService.getCreatorLatestScore(creatorId);
 
       if (!score) {
-        throw new HttpException(
-          `No credit score found for creator ${creatorId}`,
-          HttpStatus.NOT_FOUND,
-        );
+        await this.creditScoringService.generateCreatorScore(creatorId);
+        const score =
+          await this.creditScoringService.getCreatorLatestScore(creatorId);
+        if (!score) {
+          throw new HttpException(
+            `No credit score found for creator ${creatorId}`,
+            HttpStatus.NOT_FOUND,
+          );
+        } else {
+          return score;
+        }
+      } else {
+        return score;
       }
-
-      return score;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -109,13 +117,20 @@ export class CreditScoringController {
         await this.creditScoringService.getCreatorScoreHistory(creatorId);
 
       if (history.length === 0) {
-        throw new HttpException(
-          `No credit score history found for creator ${creatorId}`,
-          HttpStatus.NOT_FOUND,
-        );
+        await this.creditScoringService.generateCreatorScore(creatorId);
+        const history =
+          await this.creditScoringService.getCreatorScoreHistory(creatorId);
+        if (history.length === 0) {
+          throw new HttpException(
+            `No credit score history found for creator ${creatorId}`,
+            HttpStatus.NOT_FOUND,
+          );
+        } else {
+          return history;
+        }
+      } else {
+        return history;
       }
-
-      return history;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
