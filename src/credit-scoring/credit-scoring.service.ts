@@ -466,11 +466,7 @@ export class CreditScoringService {
         platformId: ps.platformId,
         platformType: ps.platformType,
         score: ps.score,
-        factors: ps.factors as {
-          factor: string;
-          score: number;
-          weight: number;
-        }[], // Explicitly cast factors
+        factors: JSON.parse(ps.factors as string), // Parse from JSON string
       })),
       timestamp: latestScore.timestamp,
     };
