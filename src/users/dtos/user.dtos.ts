@@ -9,9 +9,11 @@ import {
 } from 'class-validator';
 class LocationDto {
   @IsNumber()
+  @IsNotEmpty()
   latitude: number;
 
   @IsNumber()
+  @IsNotEmpty()
   longitude: number;
 }
 export class CreateUserDto {
