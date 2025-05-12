@@ -105,7 +105,7 @@ export class UserService {
         },
       });
 
-    await this.prisma.creator.create({
+    const creator = await this.prisma.creator.create({
       data: {
         name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
         email,
@@ -121,7 +121,7 @@ export class UserService {
         },
       },
     });
-    return user;
+    return { user, creatorId: creator.id };
   }
 
   async findByEmail(email: string) {
