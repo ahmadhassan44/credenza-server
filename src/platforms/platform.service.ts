@@ -54,16 +54,16 @@ export class PlatformService {
   private async connectYouTube(accessToken: string) {
     try {
       this.youtubeClient.setCredentials({ access_token: accessToken });
-      
+
       // Use YouTube Data API to fetch channel information
       // This is a placeholder that would be implemented with actual API calls
       const channelData = { handle: 'youtube_user', metrics: [] };
-      
+
       // Get metrics like subscribers, views, etc.
       const subscriberCount = 10000; // Placeholder value
       const viewCount = 1000000; // Placeholder value
       const estimatedRevenue = 5000; // Placeholder value
-      
+
       return {
         handle: channelData.handle,
         metrics: [
@@ -83,11 +83,11 @@ export class PlatformService {
       // Use Patreon API to fetch creator information
       // This is a placeholder that would be implemented with actual API calls
       const creatorData = { handle: 'patreon_creator', metrics: [] };
-      
+
       // Get metrics like patrons, pledges, etc.
       const patronCount = 500; // Placeholder value
       const monthlyIncome = 2500; // Placeholder value
-      
+
       return {
         handle: creatorData.handle,
         metrics: [
@@ -106,11 +106,11 @@ export class PlatformService {
       // Use Instagram Private API to fetch profile information
       // This is a placeholder that would be implemented with actual API calls
       const profileData = { handle: 'instagram_user', metrics: [] };
-      
+
       // Get metrics like followers, engagement, etc.
       const followerCount = 50000; // Placeholder value
       const engagementRate = 3.5; // Placeholder value
-      
+
       return {
         handle: profileData.handle,
         metrics: [
@@ -130,16 +130,16 @@ export class PlatformService {
         type,
         handle: data.handle,
         creator: { connect: { id: creatorId } },
-        metrics: {
+        Metric: {
           create: data.metrics.map((metric: any) => ({
             type: metric.type,
-            value: metric.value,
+            amount: metric.value, // Replace 'value' with the correct field name from your Prisma schema
           })),
         },
       },
       include: {
-        metrics: true,
-      }
+        Metric: true,
+      },
     });
   }
 
@@ -177,23 +177,23 @@ export class PlatformService {
         case 'YOUTUBE':
           // Fetch refreshed YouTube metrics
           metrics = [
-            { type: 'FOLLOWERS', value: 10500 },  // Updated placeholder
-            { type: 'VIEWS', value: 1050000 },    // Updated placeholder
-            { type: 'EARNINGS', value: 5250 },    // Updated placeholder
+            { type: 'FOLLOWERS', value: 10500 }, // Updated placeholder
+            { type: 'VIEWS', value: 1050000 }, // Updated placeholder
+            { type: 'EARNINGS', value: 5250 }, // Updated placeholder
           ];
           break;
         case 'PATREON':
           // Fetch refreshed Patreon metrics
           metrics = [
-            { type: 'FOLLOWERS', value: 520 },    // Updated placeholder
-            { type: 'EARNINGS', value: 2600 },    // Updated placeholder
+            { type: 'FOLLOWERS', value: 520 }, // Updated placeholder
+            { type: 'EARNINGS', value: 2600 }, // Updated placeholder
           ];
           break;
         case 'INSTAGRAM':
           // Fetch refreshed Instagram metrics
           metrics = [
-            { type: 'FOLLOWERS', value: 51000 },  // Updated placeholder
-            { type: 'ENGAGEMENT', value: 3.6 },   // Updated placeholder
+            { type: 'FOLLOWERS', value: 51000 }, // Updated placeholder
+            { type: 'ENGAGEMENT', value: 3.6 }, // Updated placeholder
           ];
           break;
         default:
@@ -201,19 +201,15 @@ export class PlatformService {
       }
 
       // Store the new metrics
-      const createdMetrics = await Promise.all(
-        metrics.map(metric =>
-          this.prisma.metric.create({
-            data: {
-              type: metric.type,
-              value: metric.value,
-              platform: { connect: { id: platformId } },
-            },
-          }),
-        ),
-      );
+      // const createdMetrics = await Promise.all(
+      //   metrics.map((metric) =>
+      //     this.prisma.metric.create({
+      //       data: {},
+      //     }),
+      //   ),
+      // );
 
-      return createdMetrics;
+      return;
     } catch (error) {
       this.logger.error(`Failed to refresh metrics: ${error.message}`);
       throw error;
