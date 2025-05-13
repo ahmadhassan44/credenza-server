@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsString,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -25,8 +26,12 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
 
-  firstName?: string;
-  lastName?: string;
+  @IsOptional()
+  @IsString()
+  firstName: string;
+  @IsOptional()
+  @IsString()
+  lastName: string;
 
   @IsOptional()
   @ValidateNested({ each: true })
