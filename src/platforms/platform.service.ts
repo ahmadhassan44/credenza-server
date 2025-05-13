@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { OAuth2Client } from 'google-auth-library';
@@ -38,6 +43,19 @@ export class PlatformService {
       if (!validCreator) {
         throw new NotFoundException('Invalid creator ID');
       }
+      //check if platform already exists
+      const existingPlatform = await this.prisma.platform.findFirst({
+        where: {
+          type: connectDto.type,
+          handle: connectDto.handle,
+        },
+      });
+      if (existingPlatform) {
+        throw new ConflictException(
+          connectDto.type,
+          'Platform already connected',
+        );
+      }
       const platform = await this.prisma.platform.create({
         data: {
           type: connectDto.type,
@@ -49,8 +67,21 @@ export class PlatformService {
       });
       return platform;
     } catch (error) {
+      // Log the error
       this.logger.error(`Platform connection failed: ${error.message}`);
-      throw new PlatformConnectionError(connectDto.type, error.message);
+
+      // Re-throw NestJS exceptions as is
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+
+      // Convert other errors to ConflictException
+      throw new ConflictException(
+        `Failed to connect to ${connectDto.type}: ${error.message}`,
+      );
     }
   }
 
