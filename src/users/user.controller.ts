@@ -22,7 +22,7 @@ export class UserController {
 
   @Get('profile')
   getProfile(@Request() req) {
-    return this.userService.findById(req.user.id);
+    return this.userService.getUserProfile(req.user.id, req.user.role);
   }
 
   @Patch('profile')

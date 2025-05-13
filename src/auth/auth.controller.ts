@@ -48,6 +48,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req) {
-    return this.userService.getUserProfile(req.user.id, 'CREATOR');
+    return this.userService.findById(req.user.id);
   }
 }
