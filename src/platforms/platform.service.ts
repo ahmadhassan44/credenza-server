@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -169,5 +170,22 @@ export class PlatformService {
     }
 
     return platforms;
+  }
+  async deletePlatform(id: string, creatorId: string) {
+    const platform = await this.prisma.platform.findUnique({
+      where: { id },
+    });
+
+    if (!platform) {
+      throw new NotFoundException(`Platform with ID ${id} not found`);
+    }
+
+    if (platform.creatorId !== creatorId) {
+      throw new UnauthorizedException(`You can delete only your own platforms`);
+    }
+
+    await this.prisma.platform.delete({
+      where: { id },
+    });
   }
 }

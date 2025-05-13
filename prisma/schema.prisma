@@ -20,7 +20,7 @@ model Creator {
   email                String                     @unique
   platforms            Platform[]
   creditScores         CreditScore[]
-  user                 User?                      @relation(fields: [userId], references: [id])
+  user                 User?                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId               String?                    @unique
   contentCategory      SuperCategory              @default(COMPUTER_SCIENCE_TECH)
   geographicLocation   CreatorGeographicLocation? @relation(fields: [geographicLocationId], references: [id])
@@ -36,14 +36,14 @@ model Platform {
   type      String // YOUTUBE, PATREON, INSTAGRAM
   handle    String
   creatorId String
-  creator   Creator  @relation(fields: [creatorId], references: [id])
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   Metric    Metric[]
 }
 
 model Metric {
   id        String   @id @default(uuid())
   creatorId String
-  creator   Creator  @relation(fields: [creatorId], references: [id])
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   date      DateTime // Reporting period, e.g., 2025-04-01
 
   views              Int
@@ -57,7 +57,7 @@ model Metric {
   otherRevenueUsd     Float? // Optional: merch, affiliates, etc.
 
   platformId String
-  Platform   Platform @relation(fields: [platformId], references: [id])
+  Platform   Platform @relation(fields: [platformId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }

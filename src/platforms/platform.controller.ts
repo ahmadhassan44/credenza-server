@@ -8,6 +8,7 @@ import {
   Logger,
   Request,
   ForbiddenException,
+  Delete,
 } from '@nestjs/common';
 import { PlatformService } from './platform.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -68,5 +69,11 @@ export class PlatformController {
   @Roles('CREATOR', 'ADMIN')
   async getAllPlatformsForCreator(@Param('creatorId') creatorId: string) {
     return this.platformService.getAllPlatformsForCreator(creatorId);
+  }
+
+  @Delete(':id')
+  @Roles('CREATOR', 'ADMIN')
+  async deletePlatform(@Param('id') id: string, @Request() req) {
+    await this.platformService.deletePlatform(id, req.user.creatorId);
   }
 }
