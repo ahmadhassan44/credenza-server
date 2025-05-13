@@ -36,7 +36,7 @@ export class PlatformService {
         where: { id: connectDto.creatorId },
       });
       if (!validCreator) {
-        throw new Error('Invalid creator ID');
+        throw new NotFoundException('Invalid creator ID');
       }
       const platform = await this.prisma.platform.create({
         data: {
