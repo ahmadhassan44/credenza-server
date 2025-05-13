@@ -123,7 +123,19 @@ export class UserService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    const creator = await this.prisma.creator.findUnique({
+      where: { userId: id },
+    });
 
+    if (creator) {
+      await this.prisma.creator.update({
+        where: { userId: id },
+        data: {
+          name: `${updateUserDto.firstName || ''} ${updateUserDto.lastName || ''}`.trim(),
+          email: updateUserDto.email,
+        },
+      });
+    }
     const data: any = { ...updateUserDto };
 
     if (updateUserDto.password) {
