@@ -35,6 +35,8 @@ export class UserService {
       data: {
         email,
         password: hashedPassword,
+        firstName: rest.firstName ? rest.firstName : '',
+        lastName: rest.lastName ? rest.firstName : '',
         ...rest,
       },
       select: {
