@@ -126,4 +126,17 @@ export class PlatformService {
       throw error;
     }
   }
+  async getAllPlatformsForCreator(creatorId: string) {
+    const platforms = await this.prisma.platform.findMany({
+      where: { creatorId },
+    });
+
+    if (!platforms || platforms.length === 0) {
+      throw new NotFoundException(
+        `No platforms found for creator with ID ${creatorId}`,
+      );
+    }
+
+    return platforms;
+  }
 }

@@ -63,4 +63,10 @@ export class PlatformController {
     this.logger.log(`Manually refreshing metrics for platform ${id}`);
     return this.platformService.refreshMetrics(id);
   }
+
+  @Get(':id')
+  @Roles('CREATOR', 'ADMIN')
+  async getAllPlatformsForCreator(@Param('creatorId') creatorId: string) {
+    return this.platformService.getAllPlatformsForCreator(creatorId);
+  }
 }
