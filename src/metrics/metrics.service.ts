@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { GetPlatfromMetricsDto } from './dtos/get-metrics.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Metric } from 'generated/prisma';
@@ -14,30 +11,71 @@ export class MetricsService {
     private readonly mockingService: MockingService,
   ) {}
   async getMetrics(getMetricsDto: GetPlatfromMetricsDto) {
-    //first we check if the user has connected the platform he is trying to get metrics for
-    const platform = await this.prismaService.platform.findFirst({
-      where: {
-        creatorId: getMetricsDto.creatorId,
-        type: getMetricsDto.platformType,
-      },
+    // Create date filter
+    const dateFilter = {};
+    if (getMetricsDto.startDate) {
+      dateFilter['gte'] = getMetricsDto.startDate;
+    }
+    if (getMetricsDto.endDate) {
+      dateFilter['lte'] = getMetricsDto.endDate;
+    }
+
+    // Check if the creator exists
+    const creator = await this.prismaService.creator.findUnique({
+      where: { id: getMetricsDto.creatorId },
     });
-    if (!platform) {
+
+    if (!creator) {
       throw new NotFoundException(
-        `Platform ${getMetricsDto.platformType} not connected`,
+        `Creator with ID ${getMetricsDto.creatorId} not found`,
       );
     }
+
+    // Build platform filter
+    const platformFilter = {};
+
+    // If platformId is provided, filter by specific platform id
+    if (getMetricsDto.platformId) {
+      platformFilter['id'] = getMetricsDto.platformId;
+    }
+    // If platformType is provided but not platformId, filter by type
+    else if (getMetricsDto.platformType) {
+      platformFilter['type'] = getMetricsDto.platformType;
+    }
+
+    // Check if the platform exists when specific filters are provided
+    if (Object.keys(platformFilter).length > 0) {
+      const platformExists = await this.prismaService.platform.findFirst({
+        where: {
+          ...platformFilter,
+          creatorId: getMetricsDto.creatorId,
+        },
+      });
+
+      if (!platformExists) {
+        const filterType = getMetricsDto.platformId ? 'ID' : 'type';
+        const filterValue =
+          getMetricsDto.platformId || getMetricsDto.platformType;
+        throw new NotFoundException(
+          `Platform with ${filterType} ${filterValue} not connected to this creator`,
+        );
+      }
+    }
+
+    // Build the query
     const metrics = await this.prismaService.metric.findMany({
       where: {
         creatorId: getMetricsDto.creatorId,
-        date: {
-          gte: getMetricsDto.startDate,
-          lte: getMetricsDto.endDate,
-        },
-        ...(getMetricsDto.platformType && {
-          Platform: {
-            type: getMetricsDto.platformType,
-          },
+        ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
+        ...(getMetricsDto.platformId && {
+          platformId: getMetricsDto.platformId,
         }),
+        ...(getMetricsDto.platformType &&
+          !getMetricsDto.platformId && {
+            Platform: {
+              type: getMetricsDto.platformType,
+            },
+          }),
       },
       orderBy: {
         date: 'asc',
@@ -52,8 +90,9 @@ export class MetricsService {
       // Generate data for the entire range
       const generatedMetrics = await this.generateMetricsForDateRange(
         getMetricsDto.creatorId,
-        getMetricsDto.startDate,
-        getMetricsDto.endDate,
+        getMetricsDto.startDate ||
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default to last 30 days
+        getMetricsDto.endDate || new Date(),
         getMetricsDto.platformType,
       );
       return generatedMetrics;
@@ -62,8 +101,8 @@ export class MetricsService {
       const completeMetrics = await this.fillMissingMonths(
         metrics,
         getMetricsDto.creatorId,
-        getMetricsDto.startDate,
-        getMetricsDto.endDate,
+        getMetricsDto.startDate || new Date(metrics[0].date), // Use earliest date in results if not specified
+        getMetricsDto.endDate || new Date(),
         getMetricsDto.platformType,
       );
       return completeMetrics;
