@@ -28,6 +28,7 @@ export class MockingService {
     creatorId: string,
     forPeriod: Date,
     platformType: string,
+    platformId: string = '',
     metricsQuality: string = 'NORMAL', // Default to NORMAL if not provided
   ): Promise<Metric> {
     // Get the creator with all relevant profile data
@@ -46,7 +47,9 @@ export class MockingService {
     }
 
     // Find the specific platform record to link metrics to
-    const platform = creator.platforms[0];
+    const platform = creator.platforms.find(
+      (platform) => platform.id === platformId,
+    );
     if (!platform) {
       throw new Error(
         `No ${platformType} platform found for creator ${creatorId}`,

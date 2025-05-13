@@ -13,6 +13,7 @@ export class MockingController {
     body: {
       creatorId: string;
       lastXMonths: number;
+      platformId: string;
       platformType: string;
       metricsQuality: string;
     },
@@ -37,6 +38,7 @@ export class MockingController {
           creatorId,
           new Date(currentDate), // Pass a copy of the date
           body.platformType,
+          body.platformId,
           body.metricsQuality,
         ),
       );
