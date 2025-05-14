@@ -123,6 +123,12 @@ export class MockingService {
       creator.geographicLocation?.averageCpmUsd,
     );
 
+    // Calculate revenue breakdowns based on platform type
+    const { adRevenue, otherRevenue } = this.calculateRevenueBreakdown(
+      estimatedRevenueUsd,
+      platformType,
+    );
+
     // Create the metric record
     const metric = await this.prismaService.metric.create({
       data: {
@@ -135,6 +141,8 @@ export class MockingService {
         avgViewDurationSec,
         engagementRatePct,
         estimatedRevenueUsd,
+        adRevenueUsd: adRevenue,
+        otherRevenueUsd: otherRevenue,
       },
     });
     return metric;
@@ -383,5 +391,39 @@ export class MockingService {
 
     // Return with 2 decimal places for currency
     return parseFloat(revenue.toFixed(2));
+  }
+
+  /**
+   * Calculate revenue breakdown into ad revenue and other revenue
+   */
+  private calculateRevenueBreakdown(
+    totalRevenue: number,
+    platformType: string,
+  ): { adRevenue: number; otherRevenue: number } {
+    // Default 70% ad revenue, 30% other revenue
+    let adRevenue = totalRevenue * 0.7;
+    let otherRevenue = totalRevenue * 0.3;
+
+    // Adjust ratios based on platform
+    switch (platformType) {
+      case 'PATREON':
+      case 'SUBSTACK':
+        adRevenue = totalRevenue * 0.4;
+        otherRevenue = totalRevenue * 0.6;
+        break;
+      case 'YOUTUBE':
+        adRevenue = totalRevenue * 0.8;
+        otherRevenue = totalRevenue * 0.2;
+        break;
+      // TIKTOK and INSTAGRAM have more variable monetization, keep default
+      default:
+        break;
+    }
+
+    // Ensure non-negative revenues
+    adRevenue = Math.max(0, adRevenue);
+    otherRevenue = Math.max(0, otherRevenue);
+
+    return { adRevenue, otherRevenue };
   }
 }
