@@ -187,5 +187,11 @@ export class PlatformService {
     await this.prisma.platform.delete({
       where: { id },
     });
+    return {
+      success: true,
+      message: `Platform with ID ${id} deleted successfully`,
+      deletedPlatformId: id,
+      platformType: platform.type,
+    };
   }
 }
