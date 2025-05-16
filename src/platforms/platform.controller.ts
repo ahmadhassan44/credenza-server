@@ -42,7 +42,7 @@ export class PlatformController {
     return this.platformService.connectPlatform(connectDto);
   }
 
-  @Get()
+  @Get('all')
   @Roles('ADMIN')
   async getAllPlatforms() {
     return this.platformService.getAllActivePlatforms();
@@ -65,7 +65,7 @@ export class PlatformController {
     return this.platformService.refreshMetrics(id);
   }
 
-  @Get(':id')
+  @Get('creator')
   @Roles('CREATOR', 'ADMIN')
   async getAllPlatformsForCreator(@Param('creatorId') creatorId: string) {
     return this.platformService.getAllPlatformsForCreator(creatorId);
