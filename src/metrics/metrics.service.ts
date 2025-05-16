@@ -51,14 +51,27 @@ export class MetricsService {
 
     // Check if the platform exists when specific filters are provided
     if (Object.keys(platformFilter).length > 0) {
-      const platformExists = await this.prismaService.platform.findFirst({
+      // Create a proper where clause for Prisma
+      const whereClause: any = {
+        creatorId: getMetricsDto.creatorId,
+      };
+
+      // Only add properties that actually exist in platformFilter
+      if ('type' in platformFilter) {
+        whereClause.type = platformFilter['type'];
+      }
+
+      if ('id' in platformFilter) {
+        whereClause.id = platformFilter['id'];
+      }
+
+      const platformExists = await this.prismaService.platform.findMany({
         where: {
-          ...platformFilter,
-          creatorId: getMetricsDto.creatorId,
+          ...whereClause,
         },
       });
 
-      if (!platformExists) {
+      if (!platformExists || platformExists.length === 0) {
         const filterType = getMetricsDto.platformId ? 'ID' : 'type';
         const filterValue =
           getMetricsDto.platformId || getMetricsDto.platformType;
@@ -93,25 +106,28 @@ export class MetricsService {
 
     // If we have no metrics at all or missing months, generate the required data
     if (metrics.length === 0) {
-      // Generate data for the entire range
-      const generatedMetrics = await this.generateMetricsForDateRange(
-        getMetricsDto.creatorId,
-        getMetricsDto.startDate ||
-          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default to last 30 days
-        getMetricsDto.endDate || new Date(),
-        getMetricsDto.platformType,
+      //   // Generate data for the entire range
+      //   const generatedMetrics = await this.generateMetricsForDateRange(
+      //     getMetricsDto.creatorId,
+      //     getMetricsDto.startDate ||
+      //       new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default to last 30 days
+      //     getMetricsDto.endDate || new Date(),
+      //     getMetricsDto.platformType,
+      //   );
+      //   return generatedMetrics;
+      // } else {
+      //   // Check for missing months and generate data for them
+      //   const completeMetrics = await this.fillMissingMonths(
+      //     metrics,
+      //     getMetricsDto.creatorId,
+      //     getMetricsDto.startDate || new Date(metrics[0].date), // Use earliest date in results if not specified
+      //     getMetricsDto.endDate || new Date(),
+      //     getMetricsDto.platformType,
+      //   );
+      //   return completeMetrics;
+      throw new NotFoundException(
+        `No metrics found for creator with ID ${getMetricsDto.creatorId}`,
       );
-      return generatedMetrics;
-    } else {
-      // Check for missing months and generate data for them
-      const completeMetrics = await this.fillMissingMonths(
-        metrics,
-        getMetricsDto.creatorId,
-        getMetricsDto.startDate || new Date(metrics[0].date), // Use earliest date in results if not specified
-        getMetricsDto.endDate || new Date(),
-        getMetricsDto.platformType,
-      );
-      return completeMetrics;
     }
   }
 
