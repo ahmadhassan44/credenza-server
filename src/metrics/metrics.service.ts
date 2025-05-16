@@ -85,22 +85,7 @@ export class MetricsService {
     const metrics = await this.prismaService.metric.findMany({
       where: {
         creatorId: getMetricsDto.creatorId,
-        ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
-        ...(getMetricsDto.platformId && {
-          platformId: getMetricsDto.platformId,
-        }),
-        ...(getMetricsDto.platformType &&
-          !getMetricsDto.platformId && {
-            Platform: {
-              type: getMetricsDto.platformType,
-            },
-          }),
-      },
-      orderBy: {
-        date: 'asc',
-      },
-      include: {
-        Platform: true,
+        platformId: getMetricsDto.platformId,
       },
     });
 
@@ -128,6 +113,8 @@ export class MetricsService {
       throw new NotFoundException(
         `No metrics found for creator with ID ${getMetricsDto.creatorId}`,
       );
+    } else {
+      return metrics;
     }
   }
 
