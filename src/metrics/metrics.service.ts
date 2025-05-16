@@ -14,10 +14,16 @@ export class MetricsService {
     // Create date filter
     const dateFilter = {};
     if (getMetricsDto.startDate) {
-      dateFilter['gte'] = getMetricsDto.startDate;
+      const startDate = new Date(getMetricsDto.startDate);
+      if (!isNaN(startDate.getTime())) {
+        dateFilter['gte'] = startDate;
+      }
     }
     if (getMetricsDto.endDate) {
-      dateFilter['lte'] = getMetricsDto.endDate;
+      const endDate = new Date(getMetricsDto.endDate);
+      if (!isNaN(endDate.getTime())) {
+        dateFilter['lte'] = endDate;
+      }
     }
 
     // Check if the creator exists
