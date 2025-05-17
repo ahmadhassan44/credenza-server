@@ -11,7 +11,6 @@ export class MetricsService {
     private readonly mockingService: MockingService,
   ) {}
   async getMetrics(getMetricsDto: GetPlatfromMetricsDto) {
-    // Create date filter
     const dateFilter = {};
     if (getMetricsDto.startDate) {
       const startDate = new Date(getMetricsDto.startDate);
@@ -26,7 +25,6 @@ export class MetricsService {
       }
     }
 
-    // Check if the creator exists
     const creator = await this.prismaService.creator.findUnique({
       where: { id: getMetricsDto.creatorId },
     });
@@ -37,79 +35,50 @@ export class MetricsService {
       );
     }
 
-    // Build platform filter
-    const platformFilter = {};
+    const allCreatorPlatforms = await this.prismaService.platform.findMany({
+      where: { creatorId: getMetricsDto.creatorId },
+    });
 
-    // If platformId is provided, filter by specific platform id
+    if (!allCreatorPlatforms || allCreatorPlatforms.length === 0) {
+      throw new NotFoundException(
+        `No platforms found for creator with ID ${getMetricsDto.creatorId}`,
+      );
+    }
+
+    let filteredPlatforms = [...allCreatorPlatforms];
+
     if (getMetricsDto.platformId) {
-      platformFilter['id'] = getMetricsDto.platformId;
-    }
-    // If platformType is provided but not platformId, filter by type
-    else if (getMetricsDto.platformType) {
-      platformFilter['type'] = getMetricsDto.platformType;
-    }
+      filteredPlatforms = filteredPlatforms.filter(
+        (platform) => platform.id === getMetricsDto.platformId,
+      );
 
-    // Check if the platform exists when specific filters are provided
-    if (Object.keys(platformFilter).length > 0) {
-      // Create a proper where clause for Prisma
-      const whereClause: any = {
-        creatorId: getMetricsDto.creatorId,
-      };
-
-      // Only add properties that actually exist in platformFilter
-      if ('type' in platformFilter) {
-        whereClause.type = platformFilter['type'];
-      }
-
-      if ('id' in platformFilter) {
-        whereClause.id = platformFilter['id'];
-      }
-
-      const platformExists = await this.prismaService.platform.findMany({
-        where: {
-          ...whereClause,
-        },
-      });
-
-      if (!platformExists || platformExists.length === 0) {
-        const filterType = getMetricsDto.platformId ? 'ID' : 'type';
-        const filterValue =
-          getMetricsDto.platformId || getMetricsDto.platformType;
+      if (filteredPlatforms.length === 0) {
         throw new NotFoundException(
-          `Platform with ${filterType} ${filterValue} not connected to this creator`,
+          `Platform with ID ${getMetricsDto.platformId} not connected to this creator`,
+        );
+      }
+    } else if (getMetricsDto.platformType) {
+      filteredPlatforms = filteredPlatforms.filter(
+        (platform) => platform.type === getMetricsDto.platformType,
+      );
+
+      if (filteredPlatforms.length === 0) {
+        throw new NotFoundException(
+          `No platforms with type ${getMetricsDto.platformType} connected to this creator`,
         );
       }
     }
 
-    // Build the query
+    const platformIds = filteredPlatforms.map((platform) => platform.id);
+
     const metrics = await this.prismaService.metric.findMany({
       where: {
         creatorId: getMetricsDto.creatorId,
-        platformId: getMetricsDto.platformId,
+        platformId: { in: platformIds },
       },
     });
 
-    // If we have no metrics at all or missing months, generate the required data
     if (metrics.length === 0) {
-      //   // Generate data for the entire range
-      //   const generatedMetrics = await this.generateMetricsForDateRange(
-      //     getMetricsDto.creatorId,
-      //     getMetricsDto.startDate ||
-      //       new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default to last 30 days
-      //     getMetricsDto.endDate || new Date(),
-      //     getMetricsDto.platformType,
-      //   );
-      //   return generatedMetrics;
-      // } else {
-      //   // Check for missing months and generate data for them
-      //   const completeMetrics = await this.fillMissingMonths(
-      //     metrics,
-      //     getMetricsDto.creatorId,
-      //     getMetricsDto.startDate || new Date(metrics[0].date), // Use earliest date in results if not specified
-      //     getMetricsDto.endDate || new Date(),
-      //     getMetricsDto.platformType,
-      //   );
-      //   return completeMetrics;
       throw new NotFoundException(
         `No metrics found for creator with ID ${getMetricsDto.creatorId}`,
       );
