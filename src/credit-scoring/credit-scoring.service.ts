@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { platform } from 'os';
 
 // Define meaningful types for better code clarity
 interface ScoringFactor {
@@ -195,6 +196,7 @@ export class CreditScoringService {
       {
         platformId: string;
         platformType: string;
+        platformHandle: string;
         scores: number[];
         allFactors: any[];
       }
@@ -208,6 +210,7 @@ export class CreditScoringService {
           platformScoresMap.set(key, {
             platformId: ps.platformId,
             platformType: ps.platformType,
+            platformHandle: ps.platformHandle,
             scores: [],
             allFactors: [],
           });
@@ -271,6 +274,7 @@ export class CreditScoringService {
       platformScores: score.platformScores.map((ps) => ({
         platformId: ps.platformId,
         platformType: ps.platformType,
+        platformHandle: ps.platformHandle,
         score: ps.score,
         factors: JSON.parse(ps.factors as string),
       })),

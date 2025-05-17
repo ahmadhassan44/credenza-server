@@ -72,13 +72,14 @@ model CreditScore {
 }
 
 model PlatformScore {
-  id            String      @id @default(uuid())
-  creditScoreId String
-  creditScore   CreditScore @relation(fields: [creditScoreId], references: [id], onDelete: Cascade)
-  platformId    String
-  platformType  String
-  score         Int // Platform-specific score (0-100)
-  factors       Json // Array of scoring factors with weights
+  id             String      @id @default(uuid())
+  creditScoreId  String
+  creditScore    CreditScore @relation(fields: [creditScoreId], references: [id], onDelete: Cascade)
+  platformId     String
+  platformType   String
+  platformHandle String      @default("")
+  score          Int // Platform-specific score (0-100)
+  factors        Json // Array of scoring factors with weights
 }
 
 model User {
