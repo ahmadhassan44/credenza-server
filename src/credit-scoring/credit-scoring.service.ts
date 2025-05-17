@@ -68,10 +68,30 @@ export class CreditScoringService {
     // Group metrics by month
     const metricsByMonth = this.groupMetricsByMonth(metrics);
 
+    // Get existing credit scores to avoid duplicates
+    const existingScores = await this.prisma.creditScore.findMany({
+      where: { creatorId },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    // Create a map of existing scores by month for quick lookup
+    const existingScoresByMonth = new Map<string, boolean>();
+    existingScores.forEach((score) => {
+      const date = new Date(score.timestamp);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      existingScoresByMonth.set(monthKey, true);
+    });
+
     // Generate a credit score for each month
     const monthlyScores: CreditScore[] = [];
 
     for (const [monthKey, monthlyMetrics] of Object.entries(metricsByMonth)) {
+      // Skip if we already have a score for this month
+      if (existingScoresByMonth.has(monthKey)) {
+        this.logger.debug(`Skipping existing score for month ${monthKey}`);
+        continue;
+      }
+
       // Extract date from month key (format: YYYY-MM)
       const [year, month] = monthKey.split('-').map((num) => parseInt(num));
       const scoreDate = new Date(year, month - 1); // JS months are 0-indexed
@@ -123,7 +143,10 @@ export class CreditScoringService {
       }
     }
 
-    return monthlyScores.sort(
+    // Merge new scores with existing ones for a complete history
+    const allScores = await this.getCreatorScoreHistory(creatorId);
+
+    return allScores.sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
     );
   }
