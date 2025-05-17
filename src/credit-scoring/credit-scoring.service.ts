@@ -49,14 +49,9 @@ export class CreditScoringService {
       throw new Error(`Creator with ID ${creatorId} not found`);
     }
 
-    // Get metrics for the past 12 months
-    const twelveMonthsAgo = new Date();
-    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-
     const metrics = await this.prisma.metric.findMany({
       where: {
         creatorId: creator.id,
-        date: { gte: twelveMonthsAgo },
       },
       orderBy: { date: 'desc' },
     });
