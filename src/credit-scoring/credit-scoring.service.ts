@@ -13,6 +13,7 @@ interface ScoringFactor {
 interface PlatformScoreData {
   platformId: string;
   platformType: string;
+  platformHandle?: string;
   score: number;
   factors: ScoringFactor[];
 }
@@ -238,6 +239,7 @@ export class CreditScoringService {
       aggregatedPlatformScores.push({
         platformId: data.platformId,
         platformType: data.platformType,
+        platformHandle: data.platformHandle,
         score: avgScore,
         factors,
       });
