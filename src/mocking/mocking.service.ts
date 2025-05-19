@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Metric } from 'generated/prisma';
 import { CATEGORY_TAGS } from 'src/commons/content-category-tags';
+import { CreditScoringService } from 'src/credit-scoring/credit-scoring.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class MockingService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly creditScoringService: CreditScoringService,
+  ) {}
   async genrateCreatorMockData(creatorId: string) {
     const creator = await this.prismaService.creator.findUnique({
       where: {
@@ -145,6 +149,7 @@ export class MockingService {
         otherRevenueUsd: otherRevenue,
       },
     });
+    await this.creditScoringService.generateCreatorScore(creatorId);
     return metric;
   }
 
