@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { platform } from 'os';
 
@@ -64,7 +64,7 @@ export class CreditScoringService {
     });
 
     if (!metrics || metrics.length === 0) {
-      throw new Error(`No metrics found for creator ${creatorId}`);
+      throw new NotFoundException(`No metrics found for creator ${creatorId}`);
     }
 
     // Group metrics by month
