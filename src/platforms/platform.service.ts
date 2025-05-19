@@ -67,9 +67,7 @@ export class PlatformService {
           },
         },
       });
-      await this.creditScoringService.generateCreatorScore(
-        connectDto.creatorId,
-      );
+
       return platform;
     } catch (error) {
       // Log the error
