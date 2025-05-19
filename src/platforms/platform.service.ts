@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { OAuth2Client } from 'google-auth-library';
 import { ConnectPlatformDto } from './dtos/connect-platform.dto';
-import { connect } from 'http2';
+import { CreditScoringService } from 'src/credit-scoring/credit-scoring.service';
 
 class PlatformConnectionError extends Error {
   constructor(platform: string, message: string) {
@@ -26,6 +26,7 @@ export class PlatformService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private creditScoringService: CreditScoringService,
   ) {
     // Initialize YouTube OAuth client
     this.youtubeClient = new OAuth2Client(
@@ -66,6 +67,9 @@ export class PlatformService {
           },
         },
       });
+      await this.creditScoringService.generateCreatorScore(
+        connectDto.creatorId,
+      );
       return platform;
     } catch (error) {
       // Log the error
