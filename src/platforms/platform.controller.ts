@@ -8,6 +8,8 @@ import {
   Logger,
   Request,
   ForbiddenException,
+  Delete,
+  Query,
 } from '@nestjs/common';
 import { PlatformService } from './platform.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -41,7 +43,7 @@ export class PlatformController {
     return this.platformService.connectPlatform(connectDto);
   }
 
-  @Get()
+  @Get('all')
   @Roles('ADMIN')
   async getAllPlatforms() {
     return this.platformService.getAllActivePlatforms();
@@ -62,5 +64,17 @@ export class PlatformController {
 
     this.logger.log(`Manually refreshing metrics for platform ${id}`);
     return this.platformService.refreshMetrics(id);
+  }
+
+  @Get('creator')
+  @Roles('CREATOR', 'ADMIN')
+  async getAllPlatformsForCreator(@Query('creatorId') creatorId: string) {
+    return this.platformService.getAllPlatformsForCreator(creatorId);
+  }
+
+  @Delete(':id')
+  @Roles('CREATOR', 'ADMIN')
+  async deletePlatform(@Param('id') id: string, @Request() req) {
+    await this.platformService.deletePlatform(id, req.user.creatorId);
   }
 }

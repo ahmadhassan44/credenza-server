@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Param,
-  Body,
   HttpException,
   HttpStatus,
   Logger,
@@ -15,6 +14,7 @@ import { CreditScoringService, CreditScore } from './credit-scoring.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Cron } from '@nestjs/schedule';
 
 @Controller('credit-scoring')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,7 +25,10 @@ export class CreditScoringController {
 
   @Post('generate/:creatorId')
   @Roles('CREATOR', 'ADMIN')
-  async generateScore(@Param('creatorId') creatorId: string, @Request() req) {
+  async generateScore(
+    @Param('creatorId') creatorId: string,
+    @Request() req,
+  ): Promise<CreditScore[]> {
     try {
       // Check if the user has permission to generate a score for this creator
       if (req.user.role !== 'ADMIN' && req.user.creatorId !== creatorId) {
@@ -34,16 +37,18 @@ export class CreditScoringController {
         );
       }
 
-      this.logger.log(`Generating credit score for creator ${creatorId}`);
+      this.logger.log(
+        `Generating monthly credit scores for creator ${creatorId}`,
+      );
       return await this.creditScoringService.generateCreatorScore(creatorId);
     } catch (error) {
       if (error instanceof ForbiddenException) {
         throw error;
       }
 
-      this.logger.error(`Failed to generate credit score: ${error.message}`);
+      this.logger.error(`Failed to generate credit scores: ${error.message}`);
       throw new HttpException(
-        `Failed to generate credit score: ${error.message}`,
+        `Failed to generate credit scores: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -67,13 +72,20 @@ export class CreditScoringController {
         await this.creditScoringService.getCreatorLatestScore(creatorId);
 
       if (!score) {
-        throw new HttpException(
-          `No credit score found for creator ${creatorId}`,
-          HttpStatus.NOT_FOUND,
-        );
+        await this.creditScoringService.generateCreatorScore(creatorId);
+        const score =
+          await this.creditScoringService.getCreatorLatestScore(creatorId);
+        if (!score) {
+          throw new HttpException(
+            `No credit score found for creator ${creatorId}`,
+            HttpStatus.NOT_FOUND,
+          );
+        } else {
+          return score;
+        }
+      } else {
+        return score;
       }
-
-      return score;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -105,13 +117,20 @@ export class CreditScoringController {
         await this.creditScoringService.getCreatorScoreHistory(creatorId);
 
       if (history.length === 0) {
-        throw new HttpException(
-          `No credit score history found for creator ${creatorId}`,
-          HttpStatus.NOT_FOUND,
-        );
+        await this.creditScoringService.generateCreatorScore(creatorId);
+        const history =
+          await this.creditScoringService.getCreatorScoreHistory(creatorId);
+        if (history.length === 0) {
+          throw new HttpException(
+            `No credit score history found for creator ${creatorId}`,
+            HttpStatus.NOT_FOUND,
+          );
+        } else {
+          return history;
+        }
+      } else {
+        return history;
       }
-
-      return history;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;

@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { GetPlatfromMetricsDto } from './dtos/get-metrics.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Metric } from 'generated/prisma';
@@ -14,59 +11,79 @@ export class MetricsService {
     private readonly mockingService: MockingService,
   ) {}
   async getMetrics(getMetricsDto: GetPlatfromMetricsDto) {
-    //first we check if the user has connected the platform he is trying to get metrics for
-    const platform = await this.prismaService.platform.findFirst({
-      where: {
-        creatorId: getMetricsDto.creatorId,
-        type: getMetricsDto.platformType,
-      },
+    const dateFilter = {};
+    if (getMetricsDto.startDate) {
+      const startDate = new Date(getMetricsDto.startDate);
+      if (!isNaN(startDate.getTime())) {
+        dateFilter['gte'] = startDate;
+      }
+    }
+    if (getMetricsDto.endDate) {
+      const endDate = new Date(getMetricsDto.endDate);
+      if (!isNaN(endDate.getTime())) {
+        dateFilter['lte'] = endDate;
+      }
+    }
+
+    const creator = await this.prismaService.creator.findUnique({
+      where: { id: getMetricsDto.creatorId },
     });
-    if (!platform) {
+
+    if (!creator) {
       throw new NotFoundException(
-        `Platform ${getMetricsDto.platformType} not connected`,
+        `Creator with ID ${getMetricsDto.creatorId} not found`,
       );
     }
+
+    const allCreatorPlatforms = await this.prismaService.platform.findMany({
+      where: { creatorId: getMetricsDto.creatorId },
+    });
+
+    if (!allCreatorPlatforms || allCreatorPlatforms.length === 0) {
+      throw new NotFoundException(
+        `No platforms found for creator with ID ${getMetricsDto.creatorId}`,
+      );
+    }
+
+    let filteredPlatforms = [...allCreatorPlatforms];
+
+    if (getMetricsDto.platformId) {
+      filteredPlatforms = filteredPlatforms.filter(
+        (platform) => platform.id === getMetricsDto.platformId,
+      );
+
+      if (filteredPlatforms.length === 0) {
+        throw new NotFoundException(
+          `Platform with ID ${getMetricsDto.platformId} not connected to this creator`,
+        );
+      }
+    } else if (getMetricsDto.platformType) {
+      filteredPlatforms = filteredPlatforms.filter(
+        (platform) => platform.type === getMetricsDto.platformType,
+      );
+
+      if (filteredPlatforms.length === 0) {
+        throw new NotFoundException(
+          `No platforms with type ${getMetricsDto.platformType} connected to this creator`,
+        );
+      }
+    }
+
+    const platformIds = filteredPlatforms.map((platform) => platform.id);
+
     const metrics = await this.prismaService.metric.findMany({
       where: {
         creatorId: getMetricsDto.creatorId,
-        date: {
-          gte: getMetricsDto.startDate,
-          lte: getMetricsDto.endDate,
-        },
-        ...(getMetricsDto.platformType && {
-          Platform: {
-            type: getMetricsDto.platformType,
-          },
-        }),
-      },
-      orderBy: {
-        date: 'asc',
-      },
-      include: {
-        Platform: true,
+        platformId: { in: platformIds },
       },
     });
 
-    // If we have no metrics at all or missing months, generate the required data
     if (metrics.length === 0) {
-      // Generate data for the entire range
-      const generatedMetrics = await this.generateMetricsForDateRange(
-        getMetricsDto.creatorId,
-        getMetricsDto.startDate,
-        getMetricsDto.endDate,
-        getMetricsDto.platformType,
+      throw new NotFoundException(
+        `No metrics found for creator with ID ${getMetricsDto.creatorId}`,
       );
-      return generatedMetrics;
     } else {
-      // Check for missing months and generate data for them
-      const completeMetrics = await this.fillMissingMonths(
-        metrics,
-        getMetricsDto.creatorId,
-        getMetricsDto.startDate,
-        getMetricsDto.endDate,
-        getMetricsDto.platformType,
-      );
-      return completeMetrics;
+      return metrics;
     }
   }
 

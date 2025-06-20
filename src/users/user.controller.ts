@@ -1,8 +1,19 @@
-import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
-import { UserService, UpdateUserDto } from './user.service';
+import {
+  Controller,
+  Get,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+  ForbiddenException,
+} from '@nestjs/common';
+import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { UpdateUserDto } from './dtos/user.dtos';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -11,7 +22,7 @@ export class UserController {
 
   @Get('profile')
   getProfile(@Request() req) {
-    return this.userService.findById(req.user.id);
+    return this.userService.getUserProfile(req.user.id, req.user.role);
   }
 
   @Patch('profile')

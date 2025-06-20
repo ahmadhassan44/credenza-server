@@ -7,9 +7,10 @@ import {
   Get,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { UserService, CreateUserDto } from '../users/user.service';
+import { UserService } from '../users/user.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CreateUserDto } from 'src/users/dtos/user.dtos';
 
 @Controller('auth')
 export class AuthController {
@@ -47,6 +48,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req) {
-    return this.userService.getUserProfile(req.user.id, "CREATOR");
+    return this.userService.findById(req.user.id);
   }
 }

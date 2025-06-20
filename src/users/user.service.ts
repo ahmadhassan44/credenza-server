@@ -5,48 +5,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  MinLength,
-  ValidateNested,
-} from 'class-validator';
+
 import { GeolocationService } from 'src/geolocation/geolocation.service';
 import { Type } from 'class-transformer';
-
-class LocationDto {
-  @IsNumber()
-  latitude: number;
-
-  @IsNumber()
-  longitude: number;
-}
-export class CreateUserDto {
-  @IsNotEmpty()
-  @IsEmail()
-  email: string;
-
-  @IsNotEmpty()
-  @MinLength(6)
-  password: string;
-
-  firstName?: string;
-  lastName?: string;
-
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => LocationDto)
-  location: LocationDto;
-}
-
-export interface UpdateUserDto {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  password?: string;
-}
+import { CreateUserDto, UpdateUserDto } from './dtos/user.dtos';
 
 @Injectable()
 export class UserService {
@@ -85,42 +47,53 @@ export class UserService {
         updatedAt: true,
       },
     });
-    const { latitude, longitude } = location;
-    const geoData =
-      await this.geolocationService.getLocationDataFromCoordinates(
-        latitude,
-        longitude,
-      );
 
-    const geographicLocation =
-      await this.prisma.creatorGeographicLocation.create({
-        data: {
-          countryCode: geoData.countryCode,
-          countryName: geoData.countryName,
-          region: geoData.region,
-          currency: geoData.currency,
-          averageCpmUsd: geoData.averageCpmUsd,
-          language: geoData.language,
-          timezone: geoData.timezone,
-        },
-      });
-
-    const creator = await this.prisma.creator.create({
-      data: {
-        name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
-        email,
-        user: {
-          connect: {
-            id: user.id,
-          },
-        },
-        geographicLocation: {
-          connect: {
-            id: geographicLocation.id,
-          },
+    // Creator data to be populated
+    const creatorData: any = {
+      name: `${rest.firstName || ''} ${rest.lastName || ''}`.trim(),
+      email,
+      user: {
+        connect: {
+          id: user.id,
         },
       },
+    };
+
+    // Only process location if it exists
+    if (location) {
+      const { latitude, longitude } = location;
+      const geoData =
+        await this.geolocationService.getLocationDataFromCoordinates(
+          latitude,
+          longitude,
+        );
+
+      const geographicLocation =
+        await this.prisma.creatorGeographicLocation.create({
+          data: {
+            countryCode: geoData.countryCode,
+            countryName: geoData.countryName,
+            region: geoData.region,
+            currency: geoData.currency,
+            averageCpmUsd: geoData.averageCpmUsd,
+            language: geoData.language,
+            timezone: geoData.timezone,
+          },
+        });
+
+      // Add geographic location to creator data if we have it
+      creatorData.geographicLocation = {
+        connect: {
+          id: geographicLocation.id,
+        },
+      };
+    }
+
+    // Create creator with the prepared data
+    const creator = await this.prisma.creator.create({
+      data: creatorData,
     });
+
     return { user, creatorId: creator.id };
   }
 
@@ -150,7 +123,19 @@ export class UserService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    const creator = await this.prisma.creator.findUnique({
+      where: { userId: id },
+    });
 
+    if (creator) {
+      await this.prisma.creator.update({
+        where: { userId: id },
+        data: {
+          name: `${updateUserDto.firstName || ''} ${updateUserDto.lastName || ''}`.trim(),
+          email: updateUserDto.email,
+        },
+      });
+    }
     const data: any = { ...updateUserDto };
 
     if (updateUserDto.password) {

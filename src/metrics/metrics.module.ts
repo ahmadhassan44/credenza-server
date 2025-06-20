@@ -1,11 +1,10 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
 import { MetricsController } from './metrics.controller';
-import { MockingService } from 'src/mocking/mocking.service';
 import { MockingModule } from 'src/mocking/mocking.module';
 
 @Module({
-  imports: [MockingModule],
+  imports: [forwardRef(() => MockingModule)],
   controllers: [MetricsController],
   providers: [MetricsService],
 })

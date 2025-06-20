@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class GetPlatfromMetricsDto {
   @IsString()
@@ -7,14 +7,18 @@ export class GetPlatfromMetricsDto {
   creatorId: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   platformType: string;
 
-  @IsNotEmpty()
+  @IsString()
+  @IsOptional()
+  platformId: string;
+
+  @IsOptional()
   @Transform(({ value }) => new Date(value))
   startDate: Date;
 
-  @IsNotEmpty()
+  @IsOptional()
   @Transform(({ value }) => new Date(value))
   endDate: Date;
 }

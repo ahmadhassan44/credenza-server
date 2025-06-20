@@ -1,9 +1,15 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { OAuth2Client } from 'google-auth-library';
 import { ConnectPlatformDto } from './dtos/connect-platform.dto';
-import { connect } from 'http2';
+import { CreditScoringService } from 'src/credit-scoring/credit-scoring.service';
 
 class PlatformConnectionError extends Error {
   constructor(platform: string, message: string) {
@@ -20,6 +26,7 @@ export class PlatformService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private creditScoringService: CreditScoringService,
   ) {
     // Initialize YouTube OAuth client
     this.youtubeClient = new OAuth2Client(
@@ -36,7 +43,20 @@ export class PlatformService {
         where: { id: connectDto.creatorId },
       });
       if (!validCreator) {
-        throw new Error('Invalid creator ID');
+        throw new NotFoundException('Invalid creator ID');
+      }
+      //check if platform already exists
+      const existingPlatform = await this.prisma.platform.findFirst({
+        where: {
+          type: connectDto.type,
+          handle: connectDto.handle,
+        },
+      });
+      if (existingPlatform) {
+        throw new ConflictException(
+          connectDto.type,
+          'Platform already connected',
+        );
       }
       const platform = await this.prisma.platform.create({
         data: {
@@ -47,10 +67,24 @@ export class PlatformService {
           },
         },
       });
+
       return platform;
     } catch (error) {
+      // Log the error
       this.logger.error(`Platform connection failed: ${error.message}`);
-      throw new PlatformConnectionError(connectDto.type, error.message);
+
+      // Re-throw NestJS exceptions as is
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+
+      // Convert other errors to ConflictException
+      throw new ConflictException(
+        `Failed to connect to ${connectDto.type}: ${error.message}`,
+      );
     }
   }
 
@@ -125,5 +159,41 @@ export class PlatformService {
       this.logger.error(`Failed to refresh metrics: ${error.message}`);
       throw error;
     }
+  }
+  async getAllPlatformsForCreator(creatorId: string) {
+    const platforms = await this.prisma.platform.findMany({
+      where: { creatorId },
+    });
+
+    if (!platforms || platforms.length === 0) {
+      throw new NotFoundException(
+        `No platforms found for creator with ID ${creatorId}`,
+      );
+    }
+
+    return platforms;
+  }
+  async deletePlatform(id: string, creatorId: string) {
+    const platform = await this.prisma.platform.findUnique({
+      where: { id },
+    });
+
+    if (!platform) {
+      throw new NotFoundException(`Platform with ID ${id} not found`);
+    }
+
+    if (platform.creatorId !== creatorId) {
+      throw new UnauthorizedException(`You can delete only your own platforms`);
+    }
+
+    await this.prisma.platform.delete({
+      where: { id },
+    });
+    return {
+      success: true,
+      message: `Platform with ID ${id} deleted successfully`,
+      deletedPlatformId: id,
+      platformType: platform.type,
+    };
   }
 }
