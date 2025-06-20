@@ -6,8 +6,6 @@ services:
     build:
       context: .
       target: production
-    volumes:
-      - .:/usr/src/app
     ports:
       - "3000:3000"
     command: npm run start:dev
