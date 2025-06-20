@@ -1,19 +1,16 @@
-FROM node:20-alpine AS development
+# Stage 1: Builder
+FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-
 RUN npm install
 
 COPY . .
-
-# Generate Prisma client first
-RUN npx prisma generate
-
-# Then build the application
 RUN npm run build
 
+
+# Stage 2: Production
 FROM node:20-alpine AS production
 
 ARG NODE_ENV=production
@@ -22,19 +19,15 @@ ENV NODE_ENV=${NODE_ENV}
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-
 RUN npm install --only=production
 
-# Copy built app
-COPY --from=development /usr/src/app/dist ./dist
+# Copy built app from builder
+COPY --from=builder /usr/src/app/dist ./dist
 
-# Copy Prisma files
-COPY --from=development /usr/src/app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=development /usr/src/app/generated ./generated
-
-# Copy Prisma schema for potential migrations
-COPY --from=development /usr/src/app/prisma ./prisma
-
+# Copy Prisma files from builder
+COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /usr/src/app/generated ./generated
+COPY --from=builder /usr/src/app/prisma ./prisma
 
 EXPOSE 3000
 
