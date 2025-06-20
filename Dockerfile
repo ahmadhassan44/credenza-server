@@ -20,6 +20,7 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 RUN npm install --only=production
+RUN npx prisma generate
 
 # Copy built app from builder
 COPY --from=builder /usr/src/app/dist ./dist
