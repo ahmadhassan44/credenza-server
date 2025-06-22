@@ -5,7 +5,6 @@ services:
     container_name: credenza-api
     build:
       context: .
-      target: production
     ports:
       - "3000:3000"
     env_file:
