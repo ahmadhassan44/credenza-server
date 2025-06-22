@@ -1,9 +1,9 @@
-#stage 1
+# Stage 1: Build
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json  ./
+COPY package.json package-lock.json ./
 
 RUN npm ci
 
@@ -13,17 +13,22 @@ RUN npx prisma generate
 
 RUN npm run build
 
-#stage 2
-FROM alpine:latest AS production
+# Stage 2: Production
+FROM node:22-alpine AS production
 
-WORKDIR /app    
+RUN apk add --no-cache python3 make g++ dumb-init
+
+WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/generated ./generated
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
+RUN npm rebuild bcrypt --build-from-source
+
 
 EXPOSE 3000
 
-ENTRYPOINT [ "npm", "run", "start:prod" ]   
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["npm", "run", "start:prod"]
