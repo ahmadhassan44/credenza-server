@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { GetPlatfromMetricsDto } from './dtos/get-metrics.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Metric } from 'generated/prisma';
+import { Metric } from 'generated/client';
 import { MockingService } from 'src/mocking/mocking.service';
 
 @Injectable()

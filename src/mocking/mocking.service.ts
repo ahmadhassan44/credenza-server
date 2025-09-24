@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Metric } from 'generated/prisma';
+import { Metric } from 'generated/client';
 import { CATEGORY_TAGS } from 'src/commons/content-category-tags';
 import { CreditScoringService } from 'src/credit-scoring/credit-scoring.service';
 import { PrismaService } from 'src/prisma/prisma.service';

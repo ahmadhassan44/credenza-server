@@ -1,4 +1,4 @@
-import { SuperCategory } from 'generated/prisma';
+import { SuperCategory } from 'generated/client';
 
 export const CATEGORY_TAGS: Record<SuperCategory, string[]> = {
   KNOWLEDGE_LEARNING: [
